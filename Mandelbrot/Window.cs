@@ -35,7 +35,12 @@ namespace Mandelbrot
 
         protected override void OnUpdateFrame(FrameEventArgs e)
         {
-            HandleKeyboard();
+            var keyState = Keyboard.GetState();
+
+            if (keyState.IsKeyDown(Key.Escape))
+            {
+                Exit();
+            }
         }
 
         protected override void OnMouseDown(MouseButtonEventArgs e)
@@ -59,19 +64,9 @@ namespace Mandelbrot
             texture = mandelbrot.GenerateTexture(Width, Height);
         }
 
-        private void HandleKeyboard()
-        {
-            var keyState = Keyboard.GetState();
-
-            if (keyState.IsKeyDown(Key.Escape))
-            {
-                Exit();
-            }
-        }
         protected override void OnRenderFrame(FrameEventArgs e)
         {
             base.OnRenderFrame(e);
-            Title = $"Mandelbrot Set Zoom: FPS - {1f / e.Time:0}";
 
             GL.Clear(ClearBufferMask.ColorBufferBit);
 

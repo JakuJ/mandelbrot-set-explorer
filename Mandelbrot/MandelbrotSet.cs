@@ -25,9 +25,8 @@ namespace Mandelbrot
             Complex z = c;
             Complex dz = 1;
             double power = 1;
-            int i = 0;
 
-            while (i < N)
+            for (int i = 0; i < N; i++)
             {
                 if (dz.Magnitude < Epsilon)
                     break;
@@ -39,7 +38,6 @@ namespace Mandelbrot
                 z = z * z + c;
 
                 power *= 2;
-                i++;
             }
             return Color.FromArgb(0, 0, 0);
         }
