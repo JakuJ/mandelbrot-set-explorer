@@ -106,7 +106,7 @@ namespace Mandelbrot
         {
             base.OnMouseWheel(e);
 
-            resolution = Math.Max(resolution - 0.1D * e.Delta, 0.1);
+            resolution = Math.Max(resolution - 0.25D * e.Delta, 0.25D);
             RedrawTexture();
         }
 
