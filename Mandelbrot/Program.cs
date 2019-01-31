@@ -11,11 +11,11 @@ namespace Mandelbrot
         [STAThread]
         public static void Main(string[] args)
         {
-            Window mainWindow = new Window(800, 500)
+            Window mainWindow = new Window(1000, 625)
             {
                 VSync = OpenTK.VSyncMode.On
             };
-            mainWindow.Run();
+            mainWindow.Run(30, 30);
         }
     }
 }

@@ -33,6 +33,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="MandelbrotSet.cs" />
     <Compile Include="Window.cs" />
+    <Compile Include="Extensions.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="OpenTK">

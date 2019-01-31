@@ -29,6 +29,24 @@ namespace Mandelbrot
         /// </summary>
         public double yMax;
         /// <summary>
+        /// Gets the window width.
+        /// </summary>
+        /// <value>The width.</value>
+        private double Width => xMax - xMin;
+        /// <summary>
+        /// Gets the window height.
+        /// </summary>
+        /// <value>The height.</value>
+        private double Height => yMax - yMin;
+        /// <summary>
+        /// The number of iterations before announcing a complex number non-divergent
+        /// </summary>
+        public int N;
+        /// <summary>
+        /// The escape radius.
+        /// </summary>
+        public int R;
+        /// <summary>
         /// Initializes a new instance of the <see cref="T:Mandelbrot.MandelbrotSet"/> class.
         /// </summary>
         public MandelbrotSet()
@@ -37,6 +55,27 @@ namespace Mandelbrot
             xMax = 1.5;
             yMin = -1.25;
             yMax = 1.25;
+
+            N = 200;
+            R = 1024;
+        }
+        /// <summary>
+        /// Zooms in or out at a specified location by a given factor.
+        /// </summary>
+        /// <param name="dx">Real part of the new location as a fraction of the window width.</param>
+        /// <param name="dy">Imaginary part of the new location as a fraction of the window height.</param>
+        /// <param name="factor">Zooming factor.</param>
+        public void Zoom(double dx, double dy, double factor)
+        {
+            double newX = xMin + Width * dx;
+            double newY = yMin + Height * dy;
+
+            dx = Width / (2 * factor); dy = Height / (2 * factor);
+
+            xMin = newX - dx;
+            xMax = newX + dx;
+            yMin = newY - dy;
+            yMax = newY + dy;
         }
         /// <summary>
         /// Returns a <see cref="Color"/> for a complex number (<paramref name="c_re"/> + <paramref name="c_im"/> i)
@@ -46,7 +85,7 @@ namespace Mandelbrot
         /// <param name="c_im">Imaginary part.</param>
         /// <param name="N">Number of iterations.</param>
         /// <param name="R">Escape radius.</param>
-        private Color DeepColoring(double c_re, double c_im, int N = 200, double R = 500)
+        private Color DeepColoring(double c_re, double c_im)
         {
             double z_re = 0;
             double z_im = 0;
@@ -87,9 +126,9 @@ namespace Mandelbrot
 
             double x = Math.Log(V) / K;
 
-            int red = (int)Math.Floor(255 / 2 * (1 + Math.Cos(a * x)));
-            int green = (int)Math.Floor(255 / 2 * (1 + Math.Cos(b * x)));
-            int blue = (int)Math.Floor(255 / 2 * (1 + Math.Cos(c * x)));
+            int red = (int)Math.Floor(255 / 2 * (1 - Math.Cos(a * x)));
+            int green = (int)Math.Floor(255 / 2 * (1 - Math.Cos(b * x)));
+            int blue = (int)Math.Floor(255 / 2 * (1 - Math.Cos(c * x)));
 
             return Color.FromArgb(red, green, blue);
         }
@@ -106,8 +145,8 @@ namespace Mandelbrot
 
             Bitmap bmp = new Bitmap(width, height);
 
-            double dx = (xMax - xMin) / bmp.Width;
-            double dy = (yMax - yMin) / bmp.Height;
+            double dx = Width / bmp.Width;
+            double dy = Height / bmp.Height;
 
             Parallel.For(0, bmp.Width, x =>
             {
