@@ -48,11 +48,11 @@ namespace Mandelbrot
         /// <summary>
         /// Initializes a new instance of the <see cref="T:Mandelbrot.Window"/> class.
         /// </summary>
-        /// <param name="_width">Window width.</param>
-        /// <param name="_height">Window height.</param>
-        public Window(int _width, int _height) : base(_width, _height)
+        /// <param name="width">Window width.</param>
+        /// <param name="height">Window height.</param>
+        public Window(int width, int height, MandelbrotSet mandelbrot) : base(width, height)
         {
-            mandelbrot = new MandelbrotSet();
+            this.mandelbrot = mandelbrot;
             BaseTitle = "Mandelbrot Set";
             mode = MouseWheelMode.ZoomFactor;
             zoomFactor = 2;
@@ -93,7 +93,12 @@ namespace Mandelbrot
                     resolution = Math.Max(25, resolution - (25 * e.Delta));
                     break;
                 case MouseWheelMode.EscapeRadius:
-                    mandelbrot.R = Math.Max(2, (int)(mandelbrot.R / Math.Pow(2, e.Delta)));
+                    try
+                    {
+                        int newRadius = (int)(mandelbrot.R / Math.Pow(2, e.Delta));
+                        mandelbrot.R = Math.Max(2, newRadius);
+                    }
+                    catch (ArithmeticException) { }
                     break;
                 case MouseWheelMode.Iterations:
                     mandelbrot.N = Math.Max(25, mandelbrot.N - (25 * e.Delta));

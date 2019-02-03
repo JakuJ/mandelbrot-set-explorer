@@ -10,7 +10,7 @@ namespace Mandelbrot
     /// <summary>
     /// Represents the Mandelbrot set renderer
     /// </summary>
-    public class MandelbrotSet
+    public abstract class MandelbrotSet
     {
         /// <summary>
         /// The lower bound of the real axis.
@@ -32,12 +32,12 @@ namespace Mandelbrot
         /// Gets the window width.
         /// </summary>
         /// <value>The width.</value>
-        private double Width => xMax - xMin;
+        protected double Width => xMax - xMin;
         /// <summary>
         /// Gets the window height.
         /// </summary>
         /// <value>The height.</value>
-        private double Height => yMax - yMin;
+        protected double Height => yMax - yMin;
         /// <summary>
         /// The number of iterations before announcing a complex number non-divergent
         /// </summary>
@@ -49,7 +49,7 @@ namespace Mandelbrot
         /// <summary>
         /// Initializes a new instance of the <see cref="T:Mandelbrot.MandelbrotSet"/> class.
         /// </summary>
-        public MandelbrotSet()
+        protected MandelbrotSet()
         {
             xMin = -2.5;
             xMax = 1.5;
@@ -78,13 +78,60 @@ namespace Mandelbrot
             yMax = newY + dy;
         }
         /// <summary>
+        /// Render the bitmap for specified image width and height.
+        /// </summary>
+        /// <returns>The rendered bitmap object.</returns>
+        /// <param name="width">Width.</param>
+        /// <param name="height">Height.</param>
+        protected abstract Bitmap Render(int width, int height);
+        /// <summary>
+        /// Generates the image (<see cref="TextureTarget.Texture2D"/>) of the Mandelbrot set bounded by the internal parameters, with given resolution.
+        /// </summary>
+        /// <returns>The texture id.</returns>
+        /// <param name="width">Image width.</param>
+        /// <param name="height">Image height.</param>
+        public int GenerateTexture(int width, int height)
+        {
+            Bitmap bmp = Render(width, height);
+
+            int id = GL.GenTexture();
+            GL.BindTexture(TextureTarget.Texture2D, id);
+
+            BitmapData data = bmp.LockBits(
+                new Rectangle(0, 0, bmp.Width, bmp.Height),
+                ImageLockMode.ReadOnly,
+                System.Drawing.Imaging.PixelFormat.Format32bppArgb
+                );
+
+            GL.TexImage2D(
+                TextureTarget.Texture2D,
+                0,
+                PixelInternalFormat.Rgba,
+                data.Width, data.Height,
+                0,
+                OpenTK.Graphics.OpenGL.PixelFormat.Bgra,
+                PixelType.UnsignedByte,
+                data.Scan0);
+
+            bmp.UnlockBits(data);
+
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Clamp);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Clamp);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+
+            return id;
+        }
+    }
+
+    public class ParallelMandelbrot : MandelbrotSet
+    {
+        /// <summary>
         /// Returns a <see cref="Color"/> for a complex number (<paramref name="c_re"/> + <paramref name="c_im"/> i)
         /// </summary>
         /// <returns>The coloring.</returns>
         /// <param name="c_re">Real part.</param>
         /// <param name="c_im">Imaginary part.</param>
-        /// <param name="N">Number of iterations.</param>
-        /// <param name="R">Escape radius.</param>
         private Color DeepColoring(double c_re, double c_im)
         {
             double z_re = 0;
@@ -133,16 +180,13 @@ namespace Mandelbrot
             return Color.FromArgb(red, green, blue);
         }
         /// <summary>
-        /// Generates the image (<see cref="TextureTarget.Texture2D"/>) of the Mandelbrot set bounded by the internal parameters, with given resolution.
+        /// Calculates the Mandelbrot set using nested <see cref="Parallel.For(int, int, Action{int})"/> and generates a <see cref="Bitmap"/>;
         /// </summary>
-        /// <returns>The texture id.</returns>
-        /// <param name="width">Image width in pixels.</param>
-        /// <param name="height">Image height in pixels.</param>
-        public int GenerateTexture(int width, int height)
+        /// <returns>A <see cref="Bitmap"/> object</returns>
+        /// <param name="width">Image width.</param>
+        /// <param name="height">Image height.</param>
+        protected override Bitmap Render(int width, int height)
         {
-            int id = GL.GenTexture();
-            GL.BindTexture(TextureTarget.Texture2D, id);
-
             Bitmap bmp = new Bitmap(width, height);
 
             double dx = Width / bmp.Width;
@@ -157,32 +201,12 @@ namespace Mandelbrot
                 });
             });
 
-            #region Texture magic
-            BitmapData data = bmp.LockBits(
-                new Rectangle(0, 0, bmp.Width, bmp.Height),
-                ImageLockMode.ReadOnly,
-                System.Drawing.Imaging.PixelFormat.Format32bppArgb
-                );
-
-            GL.TexImage2D(
-                TextureTarget.Texture2D,
-                0,
-                PixelInternalFormat.Rgba,
-                data.Width, data.Height,
-                0,
-                OpenTK.Graphics.OpenGL.PixelFormat.Bgra,
-                PixelType.UnsignedByte,
-                data.Scan0);
-
-            bmp.UnlockBits(data);
-
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Clamp);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Clamp);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
-
-            #endregion
-            return id;
+            return bmp;
         }
+    }
+
+    public class OpenCLMandelbrot : MandelbrotSet
+    {
+        protected override Bitmap Render(int width, int height) => GPUAcceleration.GenerateBitmap(width, height, N, R, xMin, xMax, yMin, yMax);
     }
 }

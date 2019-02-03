@@ -1,4 +1,4 @@
-Mandelbrot set viewer
+Mandelbrot Set viewer
 =============
 ![](https://img.shields.io/github/license/JakuJ/mandelbrot-set-viewer.svg)
 
@@ -9,7 +9,14 @@ OpenTK based C# program which generates images of the Mandelbrot set. Zooming wi
 Installation
 ------
 
-Compile and run the project solution in **Visual Studio** (works under VS for Mac at least). Use release mode to enable optimizations and set the target to `x64` for major speed improvements over `x86`.
+Compile and run the project solution in **Visual Studio** (works under VS for Mac at least). Currently there are classes you can use in `Main()` to render images:
+
+* `ParallelMandelbrot`
+* `OpenCLMandelbrot`
+
+Use release mode to enable optimizations and set the target to `x64` for major speed improvements over `x86` if using `ParallelMandelbrot` CPU implementation. This is the default mode used to generate these example images.
+
+For now the OpenCL GPU implementation is in development and uses `float` type, which makes rendering 10x faster, but not nearly as deep as with double precision CPU-based approach (if you have an OpenCL-ready GPU, otherwise it will use the CPU as fallback).
 
 Usage
 ------
@@ -26,9 +33,7 @@ Usage
 To Do:
 -----
 
-* Enable the user to control the zooming factor
-* Add new coloring techniques
-* Use an arbitrary floating point precision library to ~~go even further beyond!~~ allow for deeper zooming.
+* Use an arbitrary floating point precision library to ~~go even further beyond!~~ allow for deeper zooming in OpenCL kernel.
 
 More examples
 ----

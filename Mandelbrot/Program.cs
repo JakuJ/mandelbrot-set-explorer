@@ -7,14 +7,10 @@ namespace Mandelbrot
         /// <summary>
         /// The entry point of the program, where the program control starts and ends.
         /// </summary>
-        /// <param name="args">The command-line arguments.</param>
         [STAThread]
-        public static void Main(string[] args)
+        public static void Main()
         {
-            Window mainWindow = new Window(1000, 625)
-            {
-                VSync = OpenTK.VSyncMode.On
-            };
+            Window mainWindow = new Window(1000, 600, new ParallelMandelbrot());
             mainWindow.Run(30, 30);
         }
     }
