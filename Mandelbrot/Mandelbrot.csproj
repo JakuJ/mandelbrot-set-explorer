@@ -48,16 +48,19 @@
     <None Include="OpenTK.dll.config" />
     <None Include="packages.config" />
     <None Include="OpenCL\Makefile" />
+    <None Include="OpenCL\OpenCLRendering.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="OpenCL\buffer_kernel.cl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="OpenCL\helpers.c" />
+    <None Include="OpenCL\helpers.h" />
+    <None Include="OpenCL\image_kernel.cl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="OpenCL\mandelbrot.c" />
     <None Include="OpenCL\mandelbrot.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="OpenCL\OpenCLRendering.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </EmbeddedResource>
-    <EmbeddedResource Include="OpenCL\kernel.cl">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>

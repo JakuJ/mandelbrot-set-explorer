@@ -106,7 +106,7 @@ namespace Mandelbrot
             GL.TexImage2D(
                 TextureTarget.Texture2D,
                 0,
-                PixelInternalFormat.Rgba,
+                PixelInternalFormat.Rgba8,
                 data.Width, data.Height,
                 0,
                 OpenTK.Graphics.OpenGL.PixelFormat.Bgra,
@@ -115,8 +115,6 @@ namespace Mandelbrot
 
             bmp.UnlockBits(data);
 
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Clamp);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Clamp);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
 
@@ -206,6 +204,30 @@ namespace Mandelbrot
 
     public class OpenCLMandelbrot : MandelbrotSet
     {
-        protected override Bitmap Render(int width, int height) => GPUAcceleration.GenerateBitmap(width, height, N, R, xMin, xMax, yMin, yMax);
+        /// <summary>
+        /// Generates the <see cref="Bitmap"/> using native OpenCL Mandelbrot set implementation.
+        /// </summary>
+        /// <returns>The bitmap.</returns>
+        /// <param name="width">Bitmap width.</param>
+        /// <param name="height">Bitmap height.</param>
+        protected override Bitmap Render(int width, int height)
+        {
+#if DEBUG
+            DateTime start = DateTime.UtcNow;
+#endif
+            GPUAcceleration.OpenCLRender(out IntPtr memory, out bool format32bit, width, height, N, R, xMin, xMax, yMin, yMax);
+#if DEBUG
+            DateTime end = DateTime.UtcNow;
+            Console.WriteLine("Time spent in OpenCL: {0}", (end - start).TotalMilliseconds);
+#endif
+            System.Drawing.Imaging.PixelFormat bmpFormat = format32bit ? System.Drawing.Imaging.PixelFormat.Format32bppRgb : System.Drawing.Imaging.PixelFormat.Format24bppRgb;
+
+            Bitmap bmp = new Bitmap(width, height, bmpFormat);
+            BitmapData bmpData = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.WriteOnly, bmp.PixelFormat);
+            bmpData.Scan0 = memory;
+            bmp.UnlockBits(bmpData);
+
+            return bmp;
+        }
     }
 }

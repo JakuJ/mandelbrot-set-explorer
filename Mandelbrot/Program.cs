@@ -13,7 +13,7 @@ namespace Mandelbrot
             GPUAcceleration.ListOpenCLDevices();
 
             Window mainWindow = new Window(1000, 600, new OpenCLMandelbrot());
-            mainWindow.Run(30, 30);
+            mainWindow.Run();
         }
     }
 }

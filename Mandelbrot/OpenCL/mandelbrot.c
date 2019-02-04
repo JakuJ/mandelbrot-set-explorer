@@ -1,4 +1,5 @@
 #include "mandelbrot.h"
+#include "helpers.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -48,7 +49,7 @@ extern "C"
     }
 
     // OpenCL rendering of a Mandelbrot Set image
-    EXPORT void OpenCLRender(unsigned char **memory, int width, int height, int N, int R, double xMin, double xMax, double yMin, double yMax)
+    EXPORT void OpenCLRender(unsigned char **memory, bool* format32bit, int width, int height, int N, int R, double xMin, double xMax, double yMin, double yMax)
     {
         cl_int error = 0;
 
@@ -58,16 +59,11 @@ extern "C"
         cl_kernel kernel;
         cl_command_queue cmd_queue[MAX_DEVICES];
 
-        // Three color channels - RGB
-        size_t buffer_size = sizeof(unsigned char) * width * height * 3;
-        unsigned char *host_image = (unsigned char *)malloc(buffer_size);
-
-        // Pass the array to managed C# environment
-        *memory = host_image;
-
         // Create OpenCL context
         bool double_support = FALSE;
-        context = create_context(&num_devices, &double_support);
+        cl_device_type device_type;
+        memset(&device_type, 0, sizeof(cl_device_type));
+        context = create_context(&num_devices, &double_support, &device_type);
         if (num_devices == 0)
         {
             printf("No compute devices found\n");
@@ -75,8 +71,7 @@ extern "C"
         }
 
         // Get context devices
-        error = clGetContextInfo(context, CL_CONTEXT_DEVICES, sizeof(cl_device_id) * MAX_DEVICES,
-                                 &devices, NULL);
+        error = clGetContextInfo(context, CL_CONTEXT_DEVICES, sizeof(cl_device_id) * MAX_DEVICES, &devices, NULL);
         check_error_code("clGetContextInfo", error);
 
         // Create command queues for each of the devices
@@ -86,12 +81,39 @@ extern "C"
             check_error_code("clCreateCommandQueue", error);
         }
 
-        // Create memory buffer for the rendered image
-        cl_mem image = clCreateBuffer(context, CL_MEM_WRITE_ONLY, buffer_size, NULL, &error);
-        check_error_code("clCreateBuffer", error);
+        // Declare the buffer size
+        size_t buffer_size = sizeof(unsigned char) * width * height;
+        unsigned char *host_image;
+        cl_mem image;
 
-        // Load the kernel from file and compile it
-        kernel = load_kernel_from_file(context, double_support, "OpenCL/kernel.cl");
+        if ((*format32bit = (device_type == CL_DEVICE_TYPE_GPU)))
+        {
+            // Blue, green, red, alpha
+            buffer_size *= 4;
+            host_image = (unsigned char *)malloc(buffer_size);
+
+            // Create image buffer for the rendered output
+            cl_image_format img_format = {CL_RGBA, CL_UNSIGNED_INT8};
+            cl_image_desc img_desc = {CL_MEM_OBJECT_IMAGE2D, width, height, 1, 1, 0, 0, 0, 0, NULL};
+            image = clCreateImage(context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR, &img_format, &img_desc, host_image, &error);
+            check_error_code("clCreateImage", error);
+
+            // Load the kernel from file and compile it
+            kernel = load_kernel_from_file(context, devices, num_devices, double_support, "OpenCL/image_kernel.cl");
+        }
+        else
+        {
+            // Blue, green, red
+            buffer_size *= 3;
+            host_image = (unsigned char *)malloc(buffer_size);
+
+            // create buffer for rendered output
+            image = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR, buffer_size, host_image, &error);
+            check_error_code("clCreateBuffer", error);
+
+            // Load the kernel from file and compile it
+            kernel = load_kernel_from_file(context, devices, num_devices, double_support, "OpenCL/buffer_kernel.cl");
+        }
 
         // Prepare iteration number, escape radius and location constants to be passed as additional arguments
         cl_int clN = (cl_int)N;
@@ -129,36 +151,55 @@ extern "C"
 
         // Enqueue the calculations divided between all devices
         // ! Assuming that num_devices divides width and height evenly
-        size_t device_work_size[2] = {width, height / num_devices};
+        const size_t device_work_size[3] = {width, height / num_devices, 1};
         for (int i = 0; i < num_devices; i++)
         {
-            size_t device_work_offset[2] = {0, i * device_work_size[1]};
+            size_t device_work_offset[3] = {0, i * device_work_size[1], 0};
             size_t offset = device_work_offset[1] * width * 3;
 
             error = clEnqueueNDRangeKernel(cmd_queue[i], kernel, 2, device_work_offset,
                                            device_work_size, NULL, 0, NULL, NULL);
             check_error_code("clEnqueueNDRangeKernel", error);
 
-            // Non-blocking read to continue queuing up more kernels
-            error = clEnqueueReadBuffer(cmd_queue[i], image, CL_FALSE, offset,
-                                        buffer_size / num_devices,
-                                        host_image, 0, NULL, NULL);
-            check_error_code("clEnqueueReadBuffer", error);
+            if (device_type == CL_DEVICE_TYPE_GPU)
+            {
+                // Non-blocking read to continue queuing up more kernels
+                error = clEnqueueReadImage(cmd_queue[i], image, CL_FALSE,
+                                           device_work_offset, device_work_size, 0, 0,
+                                           host_image, 0, NULL, NULL);
+                check_error_code("clEnqueueReadImage", error);
+            }
+            else
+            {
+                // Non-blocking read to continue queuing up more kernels
+                error = clEnqueueReadBuffer(cmd_queue[i], image, CL_FALSE, offset,
+                                            buffer_size / num_devices,
+                                            host_image, 0, NULL, NULL);
+                check_error_code("clEnqueueReadBuffer", error);
+            }
         }
 
         // Force the command queues to complete the tasks
         for (int i = 0; i < num_devices; i++)
         {
-            clFinish(cmd_queue[i]);
+            error = clFinish(cmd_queue[i]);
+            check_error_code("clFinish", error);
         }
 
+        // Pass the array to managed C# environment
+        *memory = host_image;
+
         // Free OpenCL objects
-        clReleaseMemObject(image);
+        error = clReleaseMemObject(image);
+        check_error_code("clReleaseMemObject", error);
+
         for (int i = 0; i < num_devices; i++)
         {
-            clReleaseCommandQueue(cmd_queue[i]);
+            error = clReleaseCommandQueue(cmd_queue[i]);
+            check_error_code("clReleaseCommandQueue", error);
         }
-        clReleaseContext(context);
+        error = clReleaseContext(context);
+        check_error_code("clReleaseContext", error);
     }
 
 #ifdef __cplusplus
@@ -248,31 +289,8 @@ void list_platform_devices(cl_platform_id platformId, cl_device_type device_type
     free(deviceIds);
 }
 
-// Read file to a buffer
-char *read_file(const char *filepath)
-{
-    FILE *f;
-    char *content;
-    struct stat statbuf;
-
-    if (NULL == (f = fopen(filepath, "r")))
-    {
-        perror("Coudn't open file with fopen");
-        exit(EXIT_FAILURE);
-    }
-
-    stat(filepath, &statbuf);
-    content = (char *)malloc(statbuf.st_size + 1);
-
-    fread(content, statbuf.st_size, 1, f);
-    content[statbuf.st_size] = '\0';
-
-    fclose(f);
-    return content;
-}
-
 // Create OpenCL context
-cl_context create_context(cl_uint *num_devices, bool *double_supported)
+cl_context create_context(cl_uint *num_devices, bool *double_supported, cl_device_type *device_type)
 {
     cl_int error;
     cl_uint num_cpus;
@@ -294,9 +312,13 @@ cl_context create_context(cl_uint *num_devices, bool *double_supported)
     {
         devices = cpus;
         *num_devices = num_cpus;
+        *device_type = CL_DEVICE_TYPE_CPU;
+    }
+    else
+    {
+        *device_type = CL_DEVICE_TYPE_GPU;
     }
 
-    assert(*devices);
     *double_supported = check_double_support(devices, *num_devices);
 
     cl_context context = clCreateContext(0, *num_devices, devices, NULL, NULL, &error);
@@ -304,12 +326,12 @@ cl_context create_context(cl_uint *num_devices, bool *double_supported)
 
     // Print chosen devices
     printf("Chosen devices:\n");
-    for(int i = 0; i < *num_devices; i++)
+    for (int i = 0; i < *num_devices; i++)
     {
         char name[MAX_NAME] = {'\0'};
         error = clGetDeviceInfo(devices[i], CL_DEVICE_NAME, MAX_NAME, &name, NULL);
         check_error_code("clGetDeviceInfo", error);
-        printf("%d - %s, %s precision\n", i, name, *double_supported ? "Double" : "Single");
+        printf("%d - %s, %s precision, %s kernel\n", i, name, *double_supported ? "Double" : "Single", (*device_type == CL_DEVICE_TYPE_GPU) ? "Image" : "Buffer");
     }
 
     return context;
@@ -332,190 +354,41 @@ bool check_double_support(cl_device_id *devices, int num_devices)
 }
 
 // Read and build OpenCL kernel from file
-cl_kernel load_kernel_from_file(cl_context context, bool double_supported, const char *filename)
+cl_kernel load_kernel_from_file(cl_context context, cl_device_id *devices, cl_uint num_devices, bool double_supported, const char *filename)
 {
-    cl_int error;
+    cl_int error, build_error;
     char *program_source = read_file(filename);
 
     cl_program program = clCreateProgramWithSource(context, 1, (const char **)&program_source, NULL, &error);
     check_error_code("clCreateProgramWithSource", error);
 
     if (double_supported)
-        error = clBuildProgram(program, 0, NULL, "-D CONFIG_USE_DOUBLE -cl-no-signed-zeros", NULL, NULL);
+        build_error = clBuildProgram(program, 0, NULL, "-D CONFIG_USE_DOUBLE -cl-no-signed-zeros -cl-denorms-are-zero", NULL, NULL);
     else
-        error = clBuildProgram(program, 0, NULL, "-cl-no-signed-zeros", NULL, NULL);
+        build_error = clBuildProgram(program, 0, NULL, "-cl-no-signed-zeros -cl-denorms-are-zero", NULL, NULL);
 
-    check_error_code("clBuildProgram", error);
+    // Print build log on failure
+    if (build_error != CL_SUCCESS)
+    {
+        for (int i = 0; i < num_devices; i++)
+        {
+            size_t length = 0;
+            error = clGetProgramBuildInfo(program, devices[i], CL_PROGRAM_BUILD_LOG, 0, NULL, &length);
+            check_error_code("clGetProgramBuildInfo", error);
+
+            char *build_log = (char *)malloc(length * sizeof(char));
+            error = clGetProgramBuildInfo(program, devices[i], CL_PROGRAM_BUILD_LOG, length, build_log, NULL);
+            check_error_code("clGetProgramBuildInfo", error);
+
+            printf("Build log:\n%s\n", build_log);
+            free(build_log);
+        }
+    }
+
+    check_error_code("clBuildProgram", build_error);
 
     cl_kernel kernel = clCreateKernel(program, "Render", &error);
     check_error_code("clCreateKernel", error);
 
     return kernel;
-}
-
-// Checks OpenCL error codes
-void check_error_code(const char *message, cl_int error)
-{
-    if (error != CL_SUCCESS)
-    {
-        // Print error code info and abort
-        printf("Encountered error code \"%d\" while executing \"%s\"\n", error, message);
-        switch (error)
-        {
-        case -1:
-            printf("Device not found\n");
-            break;
-        case -2:
-            printf("Device not available\n");
-            break;
-        case -3:
-            printf("Compiler not available\n");
-            break;
-        case -4:
-            printf("Memory object allocation failure\n");
-            break;
-        case -5:
-            printf("Out of resources\n");
-            break;
-        case -6:
-            printf("Out of host memory\n");
-            break;
-        case -7:
-            printf("Profiling info not available\n");
-            break;
-        case -8:
-            printf("Memory copy overlap\n");
-            break;
-        case -9:
-            printf("Image format mismatch\n");
-            break;
-        case -10:
-            printf("Image format not supported\n");
-            break;
-        case -11:
-            printf("Build program failure\n");
-            break;
-        case -12:
-            printf("Map failure\n");
-            break;
-        case -30:
-            printf("Invalid value\n");
-            break;
-        case -31:
-            printf("Invaid device type\n");
-            break;
-        case -32:
-            printf("Invalid platform\n");
-            break;
-        case -33:
-            printf("Invalid device\n");
-            break;
-        case -34:
-            printf("Invalid context\n");
-            break;
-        case -35:
-            printf("Invalid queue properties\n");
-            break;
-        case -36:
-            printf("Invalid command queue\n");
-            break;
-        case -37:
-            printf("Invalid host pointer\n");
-            break;
-        case -38:
-            printf("Invalid memory object\n");
-            break;
-        case -39:
-            printf("Invalid image format descriptor\n");
-            break;
-        case -40:
-            printf("Invalid image size\n");
-            break;
-        case -41:
-            printf("Invalid sampler\n");
-            break;
-        case -42:
-            printf("Invalid binary\n");
-            break;
-        case -43:
-            printf("Invalid build options\n");
-            break;
-        case -44:
-            printf("Invalid program\n");
-            break;
-        case -45:
-            printf("Invalid program executable\n");
-            break;
-        case -46:
-            printf("Invalid kernel name\n");
-            break;
-        case -47:
-            printf("Invalid kernel defintion\n");
-            break;
-        case -48:
-            printf("Invalid kernel\n");
-            break;
-        case -49:
-            printf("Invalid argument index\n");
-            break;
-        case -50:
-            printf("Invalid argument value\n");
-            break;
-        case -51:
-            printf("Invalid argument size\n");
-            break;
-        case -52:
-            printf("Invalid kernel arguments\n");
-            break;
-        case -53:
-            printf("Invalid work dimension\n");
-            break;
-        case -54:
-            printf("Invalid work group size\n");
-            break;
-        case -55:
-            printf("Invalid work item size\n");
-            break;
-        case -56:
-            printf("Invalid global offset\n");
-            break;
-        case -57:
-            printf("Invalid event wait list\n");
-            break;
-        case -58:
-            printf("Invalid event\n");
-            break;
-        case -59:
-            printf("Invalid operation\n");
-            break;
-        case -60:
-            printf("Invalid GL object\n");
-            break;
-        case -61:
-            printf("Invalid buffer size\n");
-            break;
-        case -62:
-            printf("Invalid mip level\n");
-            break;
-        case -63:
-            printf("Invalid global work size\n");
-            break;
-        }
-        exit(EXIT_FAILURE);
-    }
-}
-
-// Helper function printing <size> - byte objects bit by bit
-void print_bits(size_t const size, void *pointer)
-{
-    unsigned char bit, *bytes = (unsigned char *)pointer;
-
-    for (int i = size - 1; i >= 0; i--)
-    {
-        for (int j = 7; j >= 0; j--)
-        {
-            bit = (bytes[i] >> j) & 1;
-            printf("%u", bit);
-        }
-    }
 }

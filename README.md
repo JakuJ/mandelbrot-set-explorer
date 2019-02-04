@@ -1,17 +1,17 @@
-Mandelbrot Set viewer
+Mandelbrot Set explorer
 =============
-![](https://img.shields.io/github/license/JakuJ/mandelbrot-set-viewer.svg)
+![License - MIT](https://img.shields.io/github/license/JakuJ/mandelbrot-set-explorer.svg)
 
 OpenTK based C# program which generates images of the Mandelbrot set. Zooming will take you as far as the floating point precision allows on your computer (10^-4.5 for single, 10^-13.5 for double precision).
 
-![An example](./Examples/brot.png?raw=true "An example of what this can do")
+![An example](./Examples/brot.png?raw=true "An example image")
 
 Installation
 ------
 
 For now, build and run the project solution in **Visual Studio** (works under **VS for Mac** at least). Currently there are two `MandelbrotSet` child classes you can use in `Main()` to render images:
 
-* `OpenCLMandelbrot` (fast, under development)
+* `OpenCLMandelbrot` (faster, may not work on older devices)
 * `ParallelMandelbrot` (slow, safe and reliable)
 
 The OpenCL implementation selects available devices according to this order of importance:
@@ -20,7 +20,8 @@ The OpenCL implementation selects available devices according to this order of i
 2. CPUs supporting double precision
 3. GPUs supporting single precision
 
-If there are no OpenCL-ready GPUs, then the CPUs are used.
+If there are no OpenCL-ready GPUs, then the CPUs are used. There are two OpenCL kernels used for rendering, one based on an `unsigned char` buffer and one based on `image2d`. The former is used with CPUs, the later with GPUs, to benefit from GPU image processing speed.
+
 OpenCL implementation on the CPU is about 4x faster than `Parallel.For` implementation (tested on Intel® Core™ i5-5257U CPU @ 2.70GHz).
 
 If OpenCL implementation doesn't work for you for some reason, use release mode to enable optimizations and set the target to `x64` for major speed improvements over `x86` while using `ParallelMandelbrot` CPU implementation.
@@ -40,7 +41,6 @@ Usage
 To Do:
 -----
 * Compile the kernel once and save the binary to reduce amortized loading time
-* Use images instead of buffers when executing kernels on GPU
 * Use an arbitrary floating point precision library to ~~go even further beyond!~~ allow for deeper zooming in OpenCL kernel.
 
 More examples

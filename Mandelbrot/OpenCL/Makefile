@@ -1,9 +1,9 @@
 CC?=gcc
-CFLAGS=-Wall
+CFLAGS=-Wall -O2
 
 all: OpenCLRendering.dll
 
-OpenCLRendering.dll: kernel.cl mandelbrot.c mandelbrot.h
-	${CC} ${CFLAGS} -c -fdeclspec mandelbrot.c
-	${CC} ${CFLAGS} -shared -o OpenCLRendering.dll mandelbrot.o -framework OpenCL
-	rm mandelbrot.o
+OpenCLRendering.dll: mandelbrot.c mandelbrot.h helpers.c helpers.h
+	${CC} ${CFLAGS} -c -fdeclspec mandelbrot.c helpers.c
+	${CC} ${CFLAGS} -shared -framework OpenCL -o OpenCLRendering.dll mandelbrot.o helpers.o
+	rm mandelbrot.o helpers.o

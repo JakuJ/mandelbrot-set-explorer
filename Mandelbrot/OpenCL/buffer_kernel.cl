@@ -1,9 +1,9 @@
 #if CONFIG_USE_DOUBLE
 
-#if defined(cl_khr_fp64)  // Khronos extension available?
+#if defined(cl_khr_fp64) // Khronos extension available?
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #define DOUBLE_SUPPORT_AVAILABLE
-#elif defined(cl_amd_fp64)  // AMD extension available?
+#elif defined(cl_amd_fp64) // AMD extension available?
 #pragma OPENCL EXTENSION cl_amd_fp64 : enable
 #define DOUBLE_SUPPORT_AVAILABLE
 #else
@@ -19,7 +19,7 @@ typedef float real_t;
 #endif
 
 __kernel void Render(__global unsigned char *out, int max_iteration, int R, real_t xMin, real_t xMax, real_t yMin, real_t yMax)
-{   
+{
     int x_dim = get_global_id(0);
     int y_dim = get_global_id(1);
 
