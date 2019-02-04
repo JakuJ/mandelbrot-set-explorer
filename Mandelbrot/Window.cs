@@ -172,14 +172,15 @@ namespace Mandelbrot
         /// <param name="timeElapsed">Last rendering time.</param>
         private void UpdateTitle(double timeElapsed = 0)
         {
-            Title = string.Format("{0} – Res: {1}% - Zoom: {2}x - Speed: {3:F3}s - N: {4} - R: {5} - Mode: {6}",
+            Title = string.Format("{0} – Res: {1}% - Zoom: {2}x, 10^{7:F1} - Speed: {3:F3}s - N: {4} - R: {5} - Mode: {6}",
                 BaseTitle,
                 resolution,
                 zoomFactor,
                 timeElapsed,
                 mandelbrot.N,
                 mandelbrot.R,
-                Enum.GetName(typeof(MouseWheelMode), mode));
+                Enum.GetName(typeof(MouseWheelMode), mode),
+                Math.Log10(mandelbrot.xMax - mandelbrot.xMin));
         }
     }
 }

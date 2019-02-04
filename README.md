@@ -2,7 +2,7 @@ Mandelbrot Set viewer
 =============
 ![](https://img.shields.io/github/license/JakuJ/mandelbrot-set-viewer.svg)
 
-OpenTK based C# program which generates images of the Mandelbrot set. Zooming will take you as far as the `double` floating point type precision allows on your computer.
+OpenTK based C# program which generates images of the Mandelbrot set. Zooming will take you as far as the floating point precision allows on your computer (10^-4.5 for single, 10^-13.5 for double precision).
 
 ![An example](./Examples/brot.png?raw=true "An example of what this can do")
 

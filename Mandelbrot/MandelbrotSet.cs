@@ -150,8 +150,7 @@ namespace Mandelbrot
                 }
 
                 z_im = z_re * z_im;
-                z_im += z_im;
-                z_im += c_im;
+                z_im += z_im + c_im;
 
                 z_re = z_re_sqr - z_im_sqr + c_re;
                 z_re_sqr = z_re * z_re;

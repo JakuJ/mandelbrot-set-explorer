@@ -19,7 +19,7 @@ typedef float real_t;
 #endif
 
 __kernel void Render(__global unsigned char *out, int max_iteration, int R, real_t xMin, real_t xMax, real_t yMin, real_t yMax)
-{
+{   
     int x_dim = get_global_id(0);
     int y_dim = get_global_id(1);
 
@@ -28,23 +28,26 @@ __kernel void Render(__global unsigned char *out, int max_iteration, int R, real
 
     int idx = 3 * (width * y_dim + x_dim);
 
-    real_t dx = xMax - xMin;
-    real_t dy = yMax - yMin;
+    real_t c_re = xMin + (xMax - xMin) * x_dim / width;
+    real_t c_im = yMin + (yMax - yMin) * y_dim / height;
 
-    real_t x_origin = xMin + dx * x_dim / width;
-    real_t y_origin = yMin + dy * y_dim / height;
-
-    real_t x = 0.0;
-    real_t y = 0.0;
+    real_t z_re = 0.0;
+    real_t z_im = 0.0;
+    real_t z_re_sqr = 0.0;
+    real_t z_im_sqr = 0.0;
 
     int iteration = 0;
-    int Radius = R * R;
+    real_t Radius = (real_t)(R * R);
 
-    while (x * x + y * y <= Radius && iteration < max_iteration)
+    while (z_re_sqr + z_im_sqr <= Radius && iteration < max_iteration)
     {
-        real_t xtemp = x * x - y * y + x_origin;
-        y = 2 * x * y + y_origin;
-        x = xtemp;
+        z_im = z_re * z_im;
+        z_im += z_im + c_im;
+
+        z_re = z_re_sqr - z_im_sqr + c_re;
+        z_re_sqr = z_re * z_re;
+        z_im_sqr = z_im * z_im;
+
         iteration++;
     }
 
@@ -56,9 +59,8 @@ __kernel void Render(__global unsigned char *out, int max_iteration, int R, real
     }
     else
     {
-        real_t V = sqrt(x * x + y * y) / powr(2.0, (real_t)iteration);
-        real_t K = 2.0;
-        real_t X = log(V) / K;
+        real_t V = sqrt(z_re_sqr + z_im_sqr) / powr(2.0, (real_t)iteration);
+        real_t X = log(V) / 2.0;
 
         real_t a = 1.4427 * X;
         real_t b = 0.34 * X;
