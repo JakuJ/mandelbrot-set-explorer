@@ -302,6 +302,16 @@ cl_context create_context(cl_uint *num_devices, bool *double_supported)
     cl_context context = clCreateContext(0, *num_devices, devices, NULL, NULL, &error);
     check_error_code("clCreateContext", error);
 
+    // Print chosen devices
+    printf("Chosen devices:\n");
+    for(int i = 0; i < *num_devices; i++)
+    {
+        char name[MAX_NAME] = {'\0'};
+        error = clGetDeviceInfo(devices[i], CL_DEVICE_NAME, MAX_NAME, &name, NULL);
+        check_error_code("clGetDeviceInfo", error);
+        printf("%d - %s, %s precision\n", i, name, *double_supported ? "Double" : "Single");
+    }
+
     return context;
 }
 

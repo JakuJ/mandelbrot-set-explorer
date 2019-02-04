@@ -39,7 +39,8 @@ Usage
 
 To Do:
 -----
-
+* Compile the kernel once and save the binary to reduce amortized loading time
+* Use images instead of buffers when executing kernels on GPU
 * Use an arbitrary floating point precision library to ~~go even further beyond!~~ allow for deeper zooming in OpenCL kernel.
 
 More examples
