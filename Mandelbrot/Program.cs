@@ -10,7 +10,9 @@ namespace Mandelbrot
         [STAThread]
         public static void Main()
         {
-            Window mainWindow = new Window(1000, 600, new ParallelMandelbrot());
+            GPUAcceleration.ListOpenCLDevices();
+
+            Window mainWindow = new Window(1000, 600, new OpenCLMandelbrot());
             mainWindow.Run(30, 30);
         }
     }

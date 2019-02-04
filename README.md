@@ -9,14 +9,21 @@ OpenTK based C# program which generates images of the Mandelbrot set. Zooming wi
 Installation
 ------
 
-Compile and run the project solution in **Visual Studio** (works under VS for Mac at least). Currently there are classes you can use in `Main()` to render images:
+For now, build and run the project solution in **Visual Studio** (works under **VS for Mac** at least). Currently there are two `MandelbrotSet` child classes you can use in `Main()` to render images:
 
-* `ParallelMandelbrot`
-* `OpenCLMandelbrot`
+* `OpenCLMandelbrot` (fast, under development)
+* `ParallelMandelbrot` (slow, safe and reliable)
 
-Use release mode to enable optimizations and set the target to `x64` for major speed improvements over `x86` if using `ParallelMandelbrot` CPU implementation. This is the default mode used to generate these example images.
+The OpenCL implementation selects available devices according to this order of importance:
 
-For now the OpenCL GPU implementation is in development and uses `float` type, which makes rendering 10x faster, but not nearly as deep as with double precision CPU-based approach (if you have an OpenCL-ready GPU, otherwise it will use the CPU as fallback).
+1. GPUs supporting double precision
+2. CPUs supporting double precision
+3. GPUs supporting single precision
+
+If there are no OpenCL-ready GPUs, then the CPUs are used.
+OpenCL implementation on the CPU is about 4x faster than `Parallel.For` implementation (tested on Intel® Core™ i5-5257U CPU @ 2.70GHz).
+
+If OpenCL implementation doesn't work for you for some reason, use release mode to enable optimizations and set the target to `x64` for major speed improvements over `x86` while using `ParallelMandelbrot` CPU implementation.
 
 Usage
 ------

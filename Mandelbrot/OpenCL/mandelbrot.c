@@ -48,7 +48,7 @@ extern "C"
     }
 
     // OpenCL rendering of a Mandelbrot Set image
-    EXPORT void OpenCLRender(unsigned char **memory, int width, int height, int N, int R, float xMin, float xMax, float yMin, float yMax)
+    EXPORT void OpenCLRender(unsigned char **memory, int width, int height, int N, int R, double xMin, double xMax, double yMin, double yMax)
     {
         cl_int error = 0;
 
@@ -66,7 +66,8 @@ extern "C"
         *memory = host_image;
 
         // Create OpenCL context
-        context = create_context(&num_devices);
+        bool double_support = FALSE;
+        context = create_context(&num_devices, &double_support);
         if (num_devices == 0)
         {
             printf("No compute devices found\n");
@@ -89,26 +90,42 @@ extern "C"
         cl_mem image = clCreateBuffer(context, CL_MEM_WRITE_ONLY, buffer_size, NULL, &error);
         check_error_code("clCreateBuffer", error);
 
+        // Load the kernel from file and compile it
+        kernel = load_kernel_from_file(context, double_support, "OpenCL/kernel.cl");
+
         // Prepare iteration number, escape radius and location constants to be passed as additional arguments
         cl_int clN = (cl_int)N;
         cl_int clR = (cl_int)R;
-        cl_float clxMin = (cl_float)xMin;
-        cl_float clxMax = (cl_float)xMax;
-        cl_float clyMin = (cl_float)yMin;
-        cl_float clyMax = (cl_float)yMax;
 
-        // Load the kernel from file and compile it
-        const char *filename = "OpenCL/kernel.cl";
-        kernel = load_kernel_from_file(context, filename);
-
-        // Setup the arguments to the kernel
         clSetKernelArg(kernel, 0, sizeof(cl_mem), &image);
         clSetKernelArg(kernel, 1, sizeof(cl_int), &clN);
         clSetKernelArg(kernel, 2, sizeof(cl_int), &clR);
-        clSetKernelArg(kernel, 3, sizeof(cl_float), &clxMin);
-        clSetKernelArg(kernel, 4, sizeof(cl_float), &clxMax);
-        clSetKernelArg(kernel, 5, sizeof(cl_float), &clyMin);
-        clSetKernelArg(kernel, 6, sizeof(cl_float), &clyMax);
+        if (double_support)
+        {
+            cl_double clxMin = (cl_double)xMin;
+            cl_double clxMax = (cl_double)xMax;
+            cl_double clyMin = (cl_double)yMin;
+            cl_double clyMax = (cl_double)yMax;
+
+            // Setup double arguments to the kernel
+            clSetKernelArg(kernel, 3, sizeof(cl_double), &clxMin);
+            clSetKernelArg(kernel, 4, sizeof(cl_double), &clxMax);
+            clSetKernelArg(kernel, 5, sizeof(cl_double), &clyMin);
+            clSetKernelArg(kernel, 6, sizeof(cl_double), &clyMax);
+        }
+        else
+        {
+            cl_float clxMin = (cl_float)xMin;
+            cl_float clxMax = (cl_float)xMax;
+            cl_float clyMin = (cl_float)yMin;
+            cl_float clyMax = (cl_float)yMax;
+
+            // Setup float arguments to the kernel
+            clSetKernelArg(kernel, 3, sizeof(cl_float), &clxMin);
+            clSetKernelArg(kernel, 4, sizeof(cl_float), &clxMax);
+            clSetKernelArg(kernel, 5, sizeof(cl_float), &clyMin);
+            clSetKernelArg(kernel, 6, sizeof(cl_float), &clyMax);
+        }
 
         // Enqueue the calculations divided between all devices
         // ! Assuming that num_devices divides width and height evenly
@@ -175,6 +192,8 @@ void list_platform_devices(cl_platform_id platformId, cl_device_type device_type
     {
         char name[MAX_NAME] = {'\0'};
         uint number;
+        cl_device_fp_config fp_config;
+        cl_device_exec_capabilities exec_capabilities;
 
         printf("%s Device %d\n", prefix, i);
 
@@ -186,15 +205,15 @@ void list_platform_devices(cl_platform_id platformId, cl_device_type device_type
         check_error_code("clGetDeviceInfo", error);
         printf("Vendor: %s\n", name);
 
-        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_ADDRESS_BITS, MAX_NAME, &number, NULL);
+        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_ADDRESS_BITS, sizeof(number), &number, NULL);
         check_error_code("clGetDeviceInfo", error);
         printf("Addressing: x%d\n", number);
 
-        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_MAX_CLOCK_FREQUENCY, MAX_NAME, &number, NULL);
+        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_MAX_CLOCK_FREQUENCY, sizeof(number), &number, NULL);
         check_error_code("clGetDeviceInfo", error);
         printf("Max Frequency: %dMHz\n", number);
 
-        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_MAX_COMPUTE_UNITS, MAX_NAME, &number, NULL);
+        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(number), &number, NULL);
         check_error_code("clGetDeviceInfo", error);
         printf("Max parallel cores: %d\n", number);
 
@@ -206,23 +225,23 @@ void list_platform_devices(cl_platform_id platformId, cl_device_type device_type
         check_error_code("clGetDeviceInfo", error);
         printf("Driver version: %s\n", name);
 
-        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_DOUBLE_FP_CONFIG, MAX_NAME, &number, NULL);
+        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_DOUBLE_FP_CONFIG, sizeof(fp_config), &fp_config, NULL);
         check_error_code("clGetDeviceInfo", error);
         printf("Single precision support: ");
-        print_bits(sizeof(char), &number);
-        printf(" (%s)\n", (number & (CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN)) ? "YES" : "NO");
+        print_bits(sizeof(char), &fp_config);
+        printf(" (%s)\n", (fp_config & (CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN)) ? "YES" : "NO");
 
-        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_DOUBLE_FP_CONFIG, MAX_NAME, &number, NULL);
+        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_DOUBLE_FP_CONFIG, sizeof(fp_config), &fp_config, NULL);
         check_error_code("clGetDeviceInfo", error);
         printf("Double precision support: ");
-        print_bits(sizeof(char), &number);
-        printf(" (%s)\n", (number != 0) ? "YES" : "NO");
+        print_bits(sizeof(char), &fp_config);
+        printf(" (%s)\n", (fp_config != 0) ? "YES" : "NO");
 
-        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_EXECUTION_CAPABILITIES, MAX_NAME, &number, NULL);
+        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_EXECUTION_CAPABILITIES, sizeof(exec_capabilities), &exec_capabilities, NULL);
         check_error_code("clGetDeviceInfo", error);
         printf("OpenCL kernels support: ");
-        print_bits(sizeof(char), &number);
-        printf(" (%s)\n", (number & CL_EXEC_KERNEL) ? "YES" : "NO");
+        print_bits(sizeof(char), &exec_capabilities);
+        printf(" (%s)\n", (exec_capabilities & CL_EXEC_KERNEL) ? "YES" : "NO");
     }
 
     printf("\n");
@@ -253,7 +272,7 @@ char *read_file(const char *filepath)
 }
 
 // Create OpenCL context
-cl_context create_context(cl_uint *num_devices)
+cl_context create_context(cl_uint *num_devices, bool *double_supported)
 {
     cl_int error;
     cl_uint num_cpus;
@@ -261,19 +280,24 @@ cl_context create_context(cl_uint *num_devices)
 
     devices = (cl_device_id *)malloc(MAX_DEVICES * sizeof(cl_device_id));
 
+    // If there is no GPU then any CPU is selected
+    // Otherwise follow this order of importance:
+    // Double precision GPU -> Double precision CPU -> Single precision GPU
+
     // Get the CPU device as a fallback
     error = clGetDeviceIDs(NULL, CL_DEVICE_TYPE_CPU, MAX_DEVICES, cpus, &num_cpus);
     check_error_code("clGetDeviceIDs", error);
 
-    // Find the GPU CL device
-    // If there is no OpenCL capable GPU device, fall back to CPU
+    // Find GPU devices
     error = clGetDeviceIDs(NULL, CL_DEVICE_TYPE_GPU, MAX_DEVICES, devices, num_devices);
-    if (error != CL_SUCCESS || *num_devices == 0)
+    if ((error != CL_SUCCESS || *num_devices == 0) || (!check_double_support(devices, *num_devices) && check_double_support(cpus, num_cpus)))
     {
         devices = cpus;
         *num_devices = num_cpus;
     }
+
     assert(*devices);
+    *double_supported = check_double_support(devices, *num_devices);
 
     cl_context context = clCreateContext(0, *num_devices, devices, NULL, NULL, &error);
     check_error_code("clCreateContext", error);
@@ -281,8 +305,24 @@ cl_context create_context(cl_uint *num_devices)
     return context;
 }
 
+bool check_double_support(cl_device_id *devices, int num_devices)
+{
+    cl_int error = CL_SUCCESS;
+    cl_device_fp_config double_support = ~0;
+
+    for (int i = 0; i < num_devices; i++)
+    {
+        cl_device_fp_config device_fp_config;
+        error = clGetDeviceInfo(devices[i], CL_DEVICE_DOUBLE_FP_CONFIG, sizeof(device_fp_config), &device_fp_config, NULL);
+        check_error_code("clGetDeviceInfo", error);
+        double_support &= device_fp_config;
+    }
+
+    return (bool)double_support;
+}
+
 // Read and build OpenCL kernel from file
-cl_kernel load_kernel_from_file(cl_context context, const char *filename)
+cl_kernel load_kernel_from_file(cl_context context, bool double_supported, const char *filename)
 {
     cl_int error;
     char *program_source = read_file(filename);
@@ -290,7 +330,11 @@ cl_kernel load_kernel_from_file(cl_context context, const char *filename)
     cl_program program = clCreateProgramWithSource(context, 1, (const char **)&program_source, NULL, &error);
     check_error_code("clCreateProgramWithSource", error);
 
-    error = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
+    if (double_supported)
+        error = clBuildProgram(program, 0, NULL, "-D CONFIG_USE_DOUBLE -cl-no-signed-zeros", NULL, NULL);
+    else
+        error = clBuildProgram(program, 0, NULL, "-cl-no-signed-zeros", NULL, NULL);
+
     check_error_code("clBuildProgram", error);
 
     cl_kernel kernel = clCreateKernel(program, "Render", &error);
@@ -454,8 +498,7 @@ void check_error_code(const char *message, cl_int error)
 // Helper function printing <size> - byte objects bit by bit
 void print_bits(size_t const size, void *pointer)
 {
-    unsigned char *bytes = (unsigned char *)pointer;
-    unsigned char bit;
+    unsigned char bit, *bytes = (unsigned char *)pointer;
 
     for (int i = size - 1; i >= 0; i--)
     {

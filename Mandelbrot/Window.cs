@@ -96,7 +96,7 @@ namespace Mandelbrot
                     try
                     {
                         int newRadius = (int)(mandelbrot.R / Math.Pow(2, e.Delta));
-                        mandelbrot.R = Math.Max(2, newRadius);
+                        mandelbrot.R = Math.Min(32768, Math.Max(2, newRadius));
                     }
                     catch (ArithmeticException) { }
                     break;

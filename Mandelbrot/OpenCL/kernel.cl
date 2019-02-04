@@ -1,9 +1,22 @@
-#define real_t float
+#if CONFIG_USE_DOUBLE
 
-int index(int x, int y, int width)
-{
-    return 3 * (width * y + x);
-}
+#if defined(cl_khr_fp64)  // Khronos extension available?
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+#define DOUBLE_SUPPORT_AVAILABLE
+#elif defined(cl_amd_fp64)  // AMD extension available?
+#pragma OPENCL EXTENSION cl_amd_fp64 : enable
+#define DOUBLE_SUPPORT_AVAILABLE
+#else
+#error "Double floating point precision not supported!"
+#endif
+
+#endif // CONFIG_USE_DOUBLE
+
+#ifdef DOUBLE_SUPPORT_AVAILABLE
+typedef double real_t;
+#else
+typedef float real_t;
+#endif
 
 __kernel void Render(__global unsigned char *out, int max_iteration, int R, real_t xMin, real_t xMax, real_t yMin, real_t yMax)
 {
@@ -13,7 +26,7 @@ __kernel void Render(__global unsigned char *out, int max_iteration, int R, real
     size_t width = get_global_size(0);
     size_t height = get_global_size(1);
 
-    int idx = index(x_dim, y_dim, width);
+    int idx = 3 * (width * y_dim + x_dim);
 
     real_t dx = xMax - xMin;
     real_t dy = yMax - yMin;
