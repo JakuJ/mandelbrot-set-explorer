@@ -1,0 +1,4 @@
+*.h linguist-language=C
+*.c linguist-language=C
+*.cl linguist-language=OpenCL
+*.cs linguist-language=CSharp
