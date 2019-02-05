@@ -1,5 +1,21 @@
 #include "helpers.h"
 
+bool check_double_support(cl_device_id *devices, int num_devices)
+{
+    cl_int error = CL_SUCCESS;
+    cl_device_fp_config double_support = ~0;
+
+    for (int i = 0; i < num_devices; i++)
+    {
+        cl_device_fp_config device_fp_config;
+        error = clGetDeviceInfo(devices[i], CL_DEVICE_DOUBLE_FP_CONFIG, sizeof(device_fp_config), &device_fp_config, NULL);
+        check_error_code("clGetDeviceInfo", error);
+        double_support &= device_fp_config;
+    }
+
+    return (bool)double_support;
+}
+
 // Read file to a buffer
 char *read_file(const char *filepath)
 {

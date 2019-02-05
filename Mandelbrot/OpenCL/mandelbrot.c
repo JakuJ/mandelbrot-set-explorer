@@ -49,7 +49,7 @@ extern "C"
     }
 
     // OpenCL rendering of a Mandelbrot Set image
-    EXPORT void OpenCLRender(unsigned char **memory, bool* format32bit, unsigned int width, unsigned int height, unsigned int N, unsigned int R, double xMin, double xMax, double yMin, double yMax)
+    EXPORT void OpenCLRender(unsigned char **memory, unsigned int width, unsigned int height, unsigned int N, unsigned int R, double xMin, double xMax, double yMin, double yMax)
     {
         cl_int error = 0;
 
@@ -58,6 +58,15 @@ extern "C"
         cl_context context;
         cl_kernel kernel;
         cl_command_queue cmd_queue[MAX_DEVICES];
+
+        // Four channels : BGRA
+        size_t buffer_size = sizeof(unsigned char) * width * height * 4;
+        unsigned char *host_image = (unsigned char *)malloc(buffer_size);
+        if (!host_image)
+        {
+            fprintf(stderr, "Couldn't allocate buffer\n");
+            exit(EXIT_FAILURE);
+        }
 
         // Create OpenCL context
         bool double_support = FALSE;
@@ -81,17 +90,10 @@ extern "C"
             check_error_code("clCreateCommandQueue", error);
         }
 
-        // Declare the buffer size
-        size_t buffer_size = sizeof(unsigned char) * width * height;
-        unsigned char *host_image;
         cl_mem image;
 
-        if ((*format32bit = (device_type == CL_DEVICE_TYPE_GPU)))
+        if (device_type == CL_DEVICE_TYPE_GPU)
         {
-            // Blue, green, red, alpha
-            buffer_size *= 4;
-            host_image = (unsigned char *)malloc(buffer_size);
-
             // Create image buffer for the rendered output
             cl_image_format img_format = {CL_RGBA, CL_UNSIGNED_INT8};
             cl_image_desc img_desc = {CL_MEM_OBJECT_IMAGE2D, width, height, 1, 1, 0, 0, 0, 0, NULL};
@@ -103,10 +105,6 @@ extern "C"
         }
         else
         {
-            // Blue, green, red
-            buffer_size *= 3;
-            host_image = (unsigned char *)malloc(buffer_size);
-
             // create buffer for rendered output
             image = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR, buffer_size, host_image, &error);
             check_error_code("clCreateBuffer", error);
@@ -155,7 +153,7 @@ extern "C"
         for (int i = 0; i < num_devices; i++)
         {
             size_t device_work_offset[3] = {0, i * device_work_size[1], 0};
-            size_t offset = device_work_offset[1] * width * 3;
+            size_t offset = device_work_offset[1] * width * 4;
 
             error = clEnqueueNDRangeKernel(cmd_queue[i], kernel, 2, device_work_offset,
                                            device_work_size, NULL, 0, NULL, NULL);
@@ -335,22 +333,6 @@ cl_context create_context(cl_uint *num_devices, bool *double_supported, cl_devic
     }
 
     return context;
-}
-
-bool check_double_support(cl_device_id *devices, int num_devices)
-{
-    cl_int error = CL_SUCCESS;
-    cl_device_fp_config double_support = ~0;
-
-    for (int i = 0; i < num_devices; i++)
-    {
-        cl_device_fp_config device_fp_config;
-        error = clGetDeviceInfo(devices[i], CL_DEVICE_DOUBLE_FP_CONFIG, sizeof(device_fp_config), &device_fp_config, NULL);
-        check_error_code("clGetDeviceInfo", error);
-        double_support &= device_fp_config;
-    }
-
-    return (bool)double_support;
 }
 
 // Read and build OpenCL kernel from file

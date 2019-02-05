@@ -28,7 +28,7 @@ __kernel void Render(__global unsigned char *out, unsigned int max_iteration, un
     size_t width = get_global_size(0);
     size_t height = get_global_size(1);
 
-    int idx = 3 * (width * y_dim + x_dim);
+    int idx = 4 * (width * y_dim + x_dim);
 
     real_t c_re = xMin + (xMax - xMin) * x_dim / width;
     real_t c_im = yMin + (yMax - yMin) * y_dim / height;
@@ -61,9 +61,9 @@ __kernel void Render(__global unsigned char *out, unsigned int max_iteration, un
         real_t green_param = 0.23570226 * X;
         real_t blue_param = 0.124526508 * X;
 
-        red = convert_uchar(127.5 * (1 - cos(X)));
-        green = convert_uchar(127.5 * (1 - cos(green_param)));
-        blue = convert_uchar(127.5 * (1 - cos(blue_param)));
+        red = convert_uchar((real_t)127.5 * (1 - cos(X)));
+        green = convert_uchar((real_t)127.5 * (1 - cos(green_param)));
+        blue = convert_uchar((real_t)127.5 * (1 - cos(blue_param)));
     }
 
     out[idx] = blue;

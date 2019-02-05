@@ -133,8 +133,6 @@ namespace Mandelbrot
             base.OnRenderFrame(e);
 
             GL.Clear(ClearBufferMask.ColorBufferBit);
-
-            GL.BindTexture(TextureTarget.Texture2D, texture);
             GL.Begin(PrimitiveType.Quads);
 
             GL.TexCoord2(0, 0);
@@ -148,6 +146,7 @@ namespace Mandelbrot
 
             GL.TexCoord2(0, 1);
             GL.Vertex2(-1, -1);
+
             GL.End();
 
             SwapBuffers();

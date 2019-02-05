@@ -23,7 +23,7 @@ extern "C"
 #endif
 
     EXPORT void ListOpenCLDevices(void);
-    EXPORT void OpenCLRender(unsigned char **memory, bool* format32bit, unsigned int width, unsigned int height, unsigned int N, unsigned int R, double xMin, double xMax, double yMin, double yMax);
+    EXPORT void OpenCLRender(unsigned char **memory, unsigned int width, unsigned int height, unsigned int N, unsigned int R, double xMin, double xMax, double yMin, double yMax);
 
 #ifdef __cplusplus
 }
@@ -31,5 +31,4 @@ extern "C"
 
 void list_platform_devices(cl_platform_id platformId, cl_device_type device_type);
 cl_context create_context(cl_uint *num_devices, bool *double_supported, cl_device_type *device_type);
-bool check_double_support(cl_device_id *devices, int num_devices);
 cl_kernel load_kernel_from_file(cl_context context, cl_device_id *devices, cl_uint device_num, bool double_supported, const char *filename);

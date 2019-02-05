@@ -100,7 +100,7 @@ namespace Mandelbrot
             BitmapData data = bmp.LockBits(
                 new Rectangle(0, 0, bmp.Width, bmp.Height),
                 ImageLockMode.ReadOnly,
-                System.Drawing.Imaging.PixelFormat.Format32bppArgb
+                bmp.PixelFormat
                 );
 
             GL.TexImage2D(
@@ -212,22 +212,9 @@ namespace Mandelbrot
         /// <param name="height">Bitmap height.</param>
         protected override Bitmap Render(int width, int height)
         {
-#if DEBUG
-            DateTime start = DateTime.UtcNow;
-#endif
-            GPUAcceleration.OpenCLRender(out IntPtr memory, out bool format32bit, (uint)width, (uint)height, (uint)N, (uint)R, xMin, xMax, yMin, yMax);
-#if DEBUG
-            DateTime end = DateTime.UtcNow;
-            Console.WriteLine("Time spent in OpenCL: {0}", (end - start).TotalMilliseconds);
-#endif
-            System.Drawing.Imaging.PixelFormat bmpFormat = format32bit ? System.Drawing.Imaging.PixelFormat.Format32bppRgb : System.Drawing.Imaging.PixelFormat.Format24bppRgb;
-
-            Bitmap bmp = new Bitmap(width, height, bmpFormat);
-            BitmapData bmpData = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.WriteOnly, bmp.PixelFormat);
-            bmpData.Scan0 = memory;
-            bmp.UnlockBits(bmpData);
-
-            return bmp;
+            GPUAcceleration.OpenCLRender(out IntPtr memory, (uint)width, (uint)height, (uint)N, (uint)R, xMin, xMax, yMin, yMax);
+            var bmpFormat = System.Drawing.Imaging.PixelFormat.Format32bppArgb;
+            return new Bitmap(width, height, Extensions.GetStride(width, bmpFormat), bmpFormat, memory);
         }
     }
 }
