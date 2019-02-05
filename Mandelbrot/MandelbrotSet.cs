@@ -57,7 +57,7 @@ namespace Mandelbrot
             yMax = 1.25;
 
             N = 200;
-            R = 1024;
+            R = 2;
         }
         /// <summary>
         /// Zooms in or out at a specified location by a given factor.

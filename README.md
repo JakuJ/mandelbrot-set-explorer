@@ -4,7 +4,7 @@ Mandelbrot Set explorer
 
 OpenTK based C# program which generates images of the Mandelbrot set. Zooming will take you as far as the floating point precision allows on your computer (10^-4.5 for single, 10^-13.5 for double precision).
 
-![An example](./Examples/brot.png?raw=true "An example image")
+![](./Examples/titular.png?raw=true)
 
 Installation
 ------
@@ -29,10 +29,10 @@ If OpenCL implementation doesn't work for you for some reason, use release mode 
 Usage
 ------
 
-* Click anywhere in the image to zoom in to that location
-* Use the `Space` key to toggle between modes dictating the parameter your mouse wheel changes. Currently available modes include:
-1. Image resolution
-2. Zooming factor
+* Left click anywhere in the image to zoom in to that location, right click to zoom out
+* Use the `Space` key to toggle between modes dictating the parameter your mouse wheel changes. Currently available modes are:
+1. Zooming factor
+2. Image resolution
 3. Number of iterations per pixel
 4. Iteration escape radius (changes coloring smoothness)
 * Use the mouse wheel to control the the selected parameter
@@ -42,13 +42,33 @@ To Do:
 -----
 * Compile the kernel once and save the binary to reduce amortized loading time
 * Use an arbitrary floating point precision library to ~~go even further beyond!~~ allow for deeper zooming in OpenCL kernel.
+* An option to save an image to disk (No more screenshots!)
 
-More examples
+Parameters
 ----
+Setting the escape radius to a value higher than 2 gives the background a wavy pattern. These are images of the same region, rendered with R=2 and R=8192 respectively.
 
-![An example](./Examples/math_is_beautiful.png?raw=true "Isn't math beautiful?")
-![An example](./Examples/black_and_white.png?raw=true "A black and white rendering")
-![An example](./Examples/swastika.png?raw=true "I think I've already seen this somewhere")
-![An example](./Examples/minibrot.png?raw=true "A Minibrot - an example of fractal self-similarity")
-![An example](./Examples/virus.png?raw=true "This one's shaped like some virus")
-![An example](./Examples/rift.png?raw=true "A rift")
+![](./Examples/low_radius.png?raw=true)
+![](./Examples/high_radius.png?raw=true)
+
+The escape radius is set to R=2 by default, as it creates smoother looking, and thus more beautiful images. Viewing structures "from afar" can create some nicely blended color patterns:
+
+![](./Examples/nice_colours.png?raw=true)
+
+The number of iterations per pixel determines how detailed the image is. Lower values cause pixels to prematurely be assigned black colour. Here are two images of the same region with N=1375 and N=4000:
+
+![](./Examples/low_iterations.png?raw=true)
+![](./Examples/high_iterations.png?raw=true)
+
+Generating these images on a laptop in about 2.5 seconds was possible only with the OpenCL renderer. The `Parallel.For` C# renderer is painfully slow in comparison and results in the user losing patience.
+
+Gallery
+-------
+
+Here are some more images. Note how in the last one setting high enough number of iterations makes an impression of infinite detail.
+
+![](./Examples/minibrot.png?raw=true)
+![](./Examples/dragon.png?raw=true)
+![](./Examples/recursion.png?raw=true)
+![](./Examples/blade.png?raw=true)
+![](./Examples/infinite_detail.png?raw=true)
