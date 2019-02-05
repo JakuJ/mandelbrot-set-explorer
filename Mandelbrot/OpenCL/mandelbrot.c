@@ -49,7 +49,7 @@ extern "C"
     }
 
     // OpenCL rendering of a Mandelbrot Set image
-    EXPORT void OpenCLRender(unsigned char **memory, bool* format32bit, int width, int height, int N, int R, double xMin, double xMax, double yMin, double yMax)
+    EXPORT void OpenCLRender(unsigned char **memory, bool* format32bit, unsigned int width, unsigned int height, unsigned int N, unsigned int R, double xMin, double xMax, double yMin, double yMax)
     {
         cl_int error = 0;
 
@@ -363,9 +363,9 @@ cl_kernel load_kernel_from_file(cl_context context, cl_device_id *devices, cl_ui
     check_error_code("clCreateProgramWithSource", error);
 
     if (double_supported)
-        build_error = clBuildProgram(program, 0, NULL, "-D CONFIG_USE_DOUBLE -cl-no-signed-zeros -cl-denorms-are-zero", NULL, NULL);
+        build_error = clBuildProgram(program, 0, NULL, "-D CONFIG_USE_DOUBLE -cl-auto-vectorize-enable -cl-no-signed-zeros -cl-denorms-are-zero", NULL, NULL);
     else
-        build_error = clBuildProgram(program, 0, NULL, "-cl-no-signed-zeros -cl-denorms-are-zero", NULL, NULL);
+        build_error = clBuildProgram(program, 0, NULL, "-cl-no-signed-zeros -cl-auto-vectorize-enable -cl-denorms-are-zero", NULL, NULL);
 
     // Print build log on failure
     if (build_error != CL_SUCCESS)

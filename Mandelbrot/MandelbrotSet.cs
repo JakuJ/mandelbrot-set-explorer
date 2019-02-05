@@ -215,7 +215,7 @@ namespace Mandelbrot
 #if DEBUG
             DateTime start = DateTime.UtcNow;
 #endif
-            GPUAcceleration.OpenCLRender(out IntPtr memory, out bool format32bit, width, height, N, R, xMin, xMax, yMin, yMax);
+            GPUAcceleration.OpenCLRender(out IntPtr memory, out bool format32bit, (uint)width, (uint)height, (uint)N, (uint)R, xMin, xMax, yMin, yMax);
 #if DEBUG
             DateTime end = DateTime.UtcNow;
             Console.WriteLine("Time spent in OpenCL: {0}", (end - start).TotalMilliseconds);

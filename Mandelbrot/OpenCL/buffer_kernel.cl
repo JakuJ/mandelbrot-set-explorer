@@ -14,11 +14,13 @@
 
 #ifdef DOUBLE_SUPPORT_AVAILABLE
 typedef double real_t;
+typedef double2 real2_t;
 #else
 typedef float real_t;
+typedef float2 real2_t;
 #endif
 
-__kernel void Render(__global unsigned char *out, int max_iteration, int R, real_t xMin, real_t xMax, real_t yMin, real_t yMax)
+__kernel void Render(__global unsigned char *out, unsigned int max_iteration, unsigned int R, real_t xMin, real_t xMax, real_t yMin, real_t yMax)
 {
     int x_dim = get_global_id(0);
     int y_dim = get_global_id(1);
@@ -31,43 +33,40 @@ __kernel void Render(__global unsigned char *out, int max_iteration, int R, real
     real_t c_re = xMin + (xMax - xMin) * x_dim / width;
     real_t c_im = yMin + (yMax - yMin) * y_dim / height;
 
-    real_t z_re = 0.0;
-    real_t z_im = 0.0;
-    real_t z_re_sqr = 0.0;
-    real_t z_im_sqr = 0.0;
+    real2_t z = 0, zq = 0;
+    real2_t c = (real2_t)(c_re, c_im);
 
-    int iteration = 0;
-    real_t Radius = (real_t)(R * R);
+    uint iteration = 0;
+    real_t Radius = R * R;
 
-    while (z_re_sqr + z_im_sqr <= Radius && iteration < max_iteration)
+    while (zq.x + zq.y <= Radius && iteration < max_iteration)
     {
-        z_im = z_re * z_im;
-        z_im += z_im + c_im;
+        z.y = z.x * z.y;
+        z.y = z.y + z.y;
 
-        z_re = z_re_sqr - z_im_sqr + c_re;
-        z_re_sqr = z_re * z_re;
-        z_im_sqr = z_im * z_im;
-
-        iteration++;
+        z.x = zq.x - zq.y;
+        z = z + c;
+        
+        zq = z * z;
+        
+        ++iteration;
     }
 
-    if (iteration == max_iteration)
+    uchar blue = 0, green = 0, red = 0;
+    if (iteration != max_iteration)
     {
-        out[idx] = 0;
-        out[idx + 1] = 0;
-        out[idx + 2] = 0;
-    }
-    else
-    {
-        real_t V = sqrt(z_re_sqr + z_im_sqr) / powr(2.0, (real_t)iteration);
-        real_t X = log(V) / 2.0;
+        real_t X = iteration + iteration - log2(zq.x + zq.y);
+        X = 0.25 * X;
+        
+        real_t green_param = 0.23570226 * X;
+        real_t blue_param = 0.124526508 * X;
 
-        real_t a = 1.4427 * X;
-        real_t b = 0.34 * X;
-        real_t c = 0.18 * X;
-
-        out[idx] = convert_uchar(floor(255 / 2 * (1 - cos(c))));
-        out[idx + 1] = convert_uchar(floor(255 / 2 * (1 - cos(b))));
-        out[idx + 2] = convert_uchar(floor(255 / 2 * (1 - cos(a))));
+        red = convert_uchar(127.5 * (1 - cos(X)));
+        green = convert_uchar(127.5 * (1 - cos(green_param)));
+        blue = convert_uchar(127.5 * (1 - cos(blue_param)));
     }
+
+    out[idx] = blue;
+    out[idx + 1] = green;
+    out[idx + 2] = red;
 }

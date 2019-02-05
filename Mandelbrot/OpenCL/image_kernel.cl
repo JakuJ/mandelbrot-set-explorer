@@ -14,11 +14,15 @@
 
 #ifdef DOUBLE_SUPPORT_AVAILABLE
 typedef double real_t;
+typedef double2 real2_t;
+typedef double4 real4_t;
 #else
 typedef float real_t;
+typedef float2 real2_t;
+typedef float4 real4_t;
 #endif
 
-__kernel void Render(__write_only image2d_t out, int max_iteration, int R, real_t xMin, real_t xMax, real_t yMin, real_t yMax)
+__kernel void Render(__write_only image2d_t out, unsigned int max_iteration, unsigned int R, real_t xMin, real_t xMax, real_t yMin, real_t yMax)
 {   
     int x_dim = get_global_id(0);
     int y_dim = get_global_id(1);
@@ -26,48 +30,39 @@ __kernel void Render(__write_only image2d_t out, int max_iteration, int R, real_
     size_t width = get_global_size(0);
     size_t height = get_global_size(1);
 
-    int idx = 4 * (width * y_dim + x_dim);
-
     real_t c_re = xMin + (xMax - xMin) * x_dim / width;
     real_t c_im = yMin + (yMax - yMin) * y_dim / height;
 
-    real_t z_re = 0.0;
-    real_t z_im = 0.0;
-    real_t z_re_sqr = 0.0;
-    real_t z_im_sqr = 0.0;
+    real2_t z = 0, zq = 0;
+    real2_t c = (real2_t)(c_re, c_im);
 
-    int iteration = 0;
-    real_t Radius = (real_t)(R * R);
+    uint iteration = 0;
+    real_t Radius = R * R;
 
-    while (z_re_sqr + z_im_sqr <= Radius && iteration < max_iteration)
+    while (zq.x + zq.y <= Radius && iteration < max_iteration)
     {
-        z_im = z_re * z_im;
-        z_im += z_im + c_im;
+        z.y = z.x * z.y;
+        z.y = z.y + z.y;
 
-        z_re = z_re_sqr - z_im_sqr + c_re;
-        z_re_sqr = z_re * z_re;
-        z_im_sqr = z_im * z_im;
-
-        iteration++;
+        z.x = zq.x - zq.y;
+        z = z + c;
+        
+        zq = z * z;
+        
+        ++iteration;
     }
 
-    if (iteration == max_iteration)
+    uint4 colors = (0, 0, 0, 0);
+
+    if (iteration != max_iteration)
     {
-        write_imageui(out, (int2)(x_dim, y_dim), (uint4)(0, 0, 0, 0));
+        real_t X = iteration + iteration - log2(zq.x + zq.y);
+
+        real4_t vec = (real4_t)(0.031131627, 0.058925565, 0.25, 0);
+        vec = 1 - cos(vec * X);
+        vec = (real_t)127.5 * vec;
+
+        colors = convert_uint4(vec);
     }
-    else
-    {
-        real_t V = sqrt(z_re_sqr + z_im_sqr) / powr(2.0, (real_t)iteration);
-        real_t X = log(V) / 2.0;
-
-        real_t a = 1.4427 * X;
-        real_t b = 0.34 * X;
-        real_t c = 0.18 * X;
-
-        uint red = floor(255 / 2 * (1 - cos(a)));
-        uint green = floor(255 / 2 * (1 - cos(b)));
-        uint blue = floor(255 / 2 * (1 - cos(c)));
-
-        write_imageui(out, (int2)(x_dim, y_dim), (uint4)(blue, green, red, 0));
-    }
+    write_imageui(out, (int2)(x_dim, y_dim), colors);
 }

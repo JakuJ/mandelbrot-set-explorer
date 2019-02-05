@@ -23,7 +23,7 @@ extern "C"
 #endif
 
     EXPORT void ListOpenCLDevices(void);
-    EXPORT void OpenCLRender(unsigned char **memory, bool* format32bit, int width, int height, int N, int R, double xMin, double xMax, double yMin, double yMax);
+    EXPORT void OpenCLRender(unsigned char **memory, bool* format32bit, unsigned int width, unsigned int height, unsigned int N, unsigned int R, double xMin, double xMax, double yMin, double yMax);
 
 #ifdef __cplusplus
 }
