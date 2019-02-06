@@ -122,6 +122,22 @@ namespace Mandelbrot
         }
     }
 
+    public class OpenCLMandelbrot : MandelbrotSet
+    {
+        /// <summary>
+        /// Generates the <see cref="Bitmap"/> using native OpenCL Mandelbrot set implementation.
+        /// </summary>
+        /// <returns>The bitmap.</returns>
+        /// <param name="width">Bitmap width.</param>
+        /// <param name="height">Bitmap height.</param>
+        protected override Bitmap Render(int width, int height)
+        {
+            GPUAcceleration.OpenCLRender(out IntPtr memory, (uint)width, (uint)height, (uint)N, (uint)R, xMin, xMax, yMin, yMax);
+            var bmpFormat = System.Drawing.Imaging.PixelFormat.Format32bppArgb;
+            return new Bitmap(width, height, Extensions.GetStride(width, bmpFormat), bmpFormat, memory);
+        }
+    }
+
     public class ParallelMandelbrot : MandelbrotSet
     {
         /// <summary>
@@ -199,22 +215,6 @@ namespace Mandelbrot
             });
 
             return bmp;
-        }
-    }
-
-    public class OpenCLMandelbrot : MandelbrotSet
-    {
-        /// <summary>
-        /// Generates the <see cref="Bitmap"/> using native OpenCL Mandelbrot set implementation.
-        /// </summary>
-        /// <returns>The bitmap.</returns>
-        /// <param name="width">Bitmap width.</param>
-        /// <param name="height">Bitmap height.</param>
-        protected override Bitmap Render(int width, int height)
-        {
-            GPUAcceleration.OpenCLRender(out IntPtr memory, (uint)width, (uint)height, (uint)N, (uint)R, xMin, xMax, yMin, yMax);
-            var bmpFormat = System.Drawing.Imaging.PixelFormat.Format32bppArgb;
-            return new Bitmap(width, height, Extensions.GetStride(width, bmpFormat), bmpFormat, memory);
         }
     }
 }

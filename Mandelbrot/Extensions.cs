@@ -17,12 +17,9 @@ namespace Mandelbrot
 
         public static int GetStride(int width, PixelFormat pxFormat)
         {
-            //float bitsPerPixel = System.Drawing.Image.GetPixelFormatSize(format);
             int bitsPerPixel = ((int)pxFormat >> 8) & 0xFF;
-            //Number of bits used to store the image data per line (only the valid data)
             int validBitsPerLine = width * bitsPerPixel;
-            //4 bytes for every int32 (32 bits)
-            int stride = ((validBitsPerLine + 31) / 32) * 4;
+            int stride = (validBitsPerLine + 31) / 32 * 4;
             return stride;
         }
     }

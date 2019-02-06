@@ -1,5 +1,65 @@
 #include "helpers.h"
 
+// Read file to a buffer
+char *read_file(const char *filepath)
+{
+    FILE *f;
+    struct stat statbuf;
+
+    if (NULL == (f = fopen(filepath, "r")))
+    {
+        perror("Coudn't open file with fopen");
+        exit(EXIT_FAILURE);
+    }
+
+    stat(filepath, &statbuf);
+    char *content = (char *)malloc(statbuf.st_size + 1);
+
+    fread(content, statbuf.st_size, 1, f);
+    content[statbuf.st_size] = '\0';
+
+    fclose(f);
+    return content;
+}
+
+// Read binary file to a buffer
+void read_binary(unsigned char* target, size_t size, const char *filepath)
+{
+    FILE *f;
+
+    if (NULL == (f = fopen(filepath, "rb")))
+    {
+        perror("Coudn't open file with fopen");
+        exit(EXIT_FAILURE);
+    }
+
+    fread(target, size, 1, f);
+
+    fclose(f);
+}
+
+// Write binary data to file
+void write_binary(unsigned char *content, size_t length, const char *filepath)
+{
+    FILE *f;
+
+    if (NULL == (f = fopen(filepath, "wb")))
+    {
+        perror("Coudn't open file with fopen");
+        exit(EXIT_FAILURE);
+    }
+    
+    size_t written = 0;
+    if (length != (written = fwrite(content, sizeof(unsigned char), length, f)))
+    {
+        fprintf(stderr, "Couldn't write binary to file [%zu / %zu written]\n", written, length);
+        exit(EXIT_FAILURE);
+    }
+
+    fclose(f);
+}
+
+// Check whether all devices on the list support double precision
 bool check_double_support(cl_device_id *devices, int num_devices)
 {
     cl_int error = CL_SUCCESS;
@@ -16,29 +76,6 @@ bool check_double_support(cl_device_id *devices, int num_devices)
     return (bool)double_support;
 }
 
-// Read file to a buffer
-char *read_file(const char *filepath)
-{
-    FILE *f;
-    char *content;
-    struct stat statbuf;
-
-    if (NULL == (f = fopen(filepath, "r")))
-    {
-        perror("Coudn't open file with fopen");
-        exit(EXIT_FAILURE);
-    }
-
-    stat(filepath, &statbuf);
-    content = (char *)malloc(statbuf.st_size + 1);
-
-    fread(content, statbuf.st_size, 1, f);
-    content[statbuf.st_size] = '\0';
-
-    fclose(f);
-    return content;
-}
-
 // Helper function printing <size> - byte objects bit by bit
 void print_bits(size_t const size, void *pointer)
 {
@@ -52,6 +89,87 @@ void print_bits(size_t const size, void *pointer)
             printf("%u", bit);
         }
     }
+}
+
+// List all OpenCL devices on a given platform
+void list_platform_devices(cl_platform_id platformId, cl_device_type device_type)
+{
+    cl_int error = CL_SUCCESS;
+    const char *prefix = (device_type == CL_DEVICE_TYPE_CPU) ? "CPU" : "GPU";
+
+    // Get device number
+    cl_uint deviceNumber;
+    error = clGetDeviceIDs(platformId, device_type, 0, NULL, &deviceNumber);
+    check_error_code("clGetDeviceIDs", error);
+
+    if (0 == deviceNumber)
+    {
+        printf("No OpenCL ready %s devices found on the platform\n", prefix);
+        return;
+    }
+
+    // Get device identifiers
+    cl_device_id deviceIds[deviceNumber];
+    error = clGetDeviceIDs(platformId, device_type, deviceNumber, deviceIds, &deviceNumber);
+    check_error_code("clGetDeviceIDs", error);
+
+    // Print device info
+    for (cl_uint i = 0; i < deviceNumber; i++)
+    {
+        char name[MAX_NAME] = {'\0'};
+        uint number;
+        cl_device_fp_config fp_config;
+        cl_device_exec_capabilities exec_capabilities;
+
+        printf("%s Device %d\n", prefix, i);
+
+        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_NAME, MAX_NAME, &name, NULL);
+        check_error_code("clGetDeviceInfo", error);
+        printf("Name: %s\n", name);
+
+        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_VENDOR, MAX_NAME, &name, NULL);
+        check_error_code("clGetDeviceInfo", error);
+        printf("Vendor: %s\n", name);
+
+        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_ADDRESS_BITS, sizeof(number), &number, NULL);
+        check_error_code("clGetDeviceInfo", error);
+        printf("Addressing: x%d\n", number);
+
+        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_MAX_CLOCK_FREQUENCY, sizeof(number), &number, NULL);
+        check_error_code("clGetDeviceInfo", error);
+        printf("Max Frequency: %dMHz\n", number);
+
+        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(number), &number, NULL);
+        check_error_code("clGetDeviceInfo", error);
+        printf("Max parallel cores: %d\n", number);
+
+        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_VERSION, MAX_NAME, &name, NULL);
+        check_error_code("clGetDeviceInfo", error);
+        printf("Version: %s\n", name);
+
+        error = clGetDeviceInfo(deviceIds[i], CL_DRIVER_VERSION, MAX_NAME, &name, NULL);
+        check_error_code("clGetDeviceInfo", error);
+        printf("Driver version: %s\n", name);
+
+        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_DOUBLE_FP_CONFIG, sizeof(fp_config), &fp_config, NULL);
+        check_error_code("clGetDeviceInfo", error);
+        printf("Single precision support: ");
+        print_bits(sizeof(char), &fp_config);
+        printf(" (%s)\n", (fp_config & (CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN)) ? "YES" : "NO");
+
+        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_DOUBLE_FP_CONFIG, sizeof(fp_config), &fp_config, NULL);
+        check_error_code("clGetDeviceInfo", error);
+        printf("Double precision support: ");
+        print_bits(sizeof(char), &fp_config);
+        printf(" (%s)\n", (fp_config != 0) ? "YES" : "NO");
+
+        error = clGetDeviceInfo(deviceIds[i], CL_DEVICE_EXECUTION_CAPABILITIES, sizeof(exec_capabilities), &exec_capabilities, NULL);
+        check_error_code("clGetDeviceInfo", error);
+        printf("OpenCL kernels support: ");
+        print_bits(sizeof(char), &exec_capabilities);
+        printf(" (%s)\n", (exec_capabilities & CL_EXEC_KERNEL) ? "YES" : "NO");
+    }
+    printf("\n");
 }
 
 // Checks OpenCL error codes

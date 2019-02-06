@@ -11,8 +11,9 @@ namespace Mandelbrot
         public static void Main()
         {
             GPUAcceleration.ListOpenCLDevices();
+            GPUAcceleration.PrecompileKernels();
 
-            Window mainWindow = new Window(1000, 600, new OpenCLMandelbrot());
+            Window mainWindow = new Window(1000, 625, new OpenCLMandelbrot());
             mainWindow.Run();
         }
     }

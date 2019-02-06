@@ -9,7 +9,9 @@ OpenTK based C# program which generates images of the Mandelbrot set. Zooming wi
 Installation
 ------
 
-For now, build and run the project solution in **Visual Studio** (works under **VS for Mac** at least). Currently there are two `MandelbrotSet` child classes you can use in `Main()` to render images:
+Run `make` in `Mandelbrot/OpenCL` folder to compile the native .dll which will allow for parallel rendering on GPU/CPU using OpenCL. The .dll is copied to output directory automatically by Visual Studio.
+
+Build and run the project solution in **Visual Studio** (works under **VS for Mac** at least). Currently there are two `MandelbrotSet` child classes you can use in `Main()` to render images:
 
 * `OpenCLMandelbrot` (faster, may not work on older devices)
 * `ParallelMandelbrot` (slow, safe and reliable)
@@ -40,7 +42,6 @@ Usage
 
 To Do:
 -----
-* Compile the kernel once and save the binary to reduce amortized loading time
 * Use an arbitrary floating point precision library to ~~go even further beyond!~~ allow for deeper zooming in OpenCL kernel.
 * An option to save an image to disk (No more screenshots!)
 
