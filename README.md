@@ -36,14 +36,14 @@ Usage
 1. Zooming factor
 2. Image resolution
 3. Number of iterations per pixel
-4. Iteration escape radius (changes coloring smoothness)
-* Use the mouse wheel to control the the selected parameter
-* The Escape key terminates the program
+4. Iteration escape radius (changes coloring smoothness).
+* Use the mouse wheel to control the selected parameter.
+* Press S to save the current image. Images are stored in the "Captured" folder.
+* The Escape key terminates the program.
 
 To Do:
 -----
 * Use an arbitrary floating point precision library to ~~go even further beyond!~~ allow for deeper zooming in OpenCL kernel.
-* An option to save an image to disk (No more screenshots!)
 
 Parameters
 ----

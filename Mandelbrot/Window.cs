@@ -4,6 +4,10 @@ using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Input;
 
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
+
 namespace Mandelbrot
 {
     /// <summary>
@@ -42,6 +46,16 @@ namespace Mandelbrot
         /// </summary>
         private int resolution;
         /// <summary>
+        /// Gets the width of the generated image.
+        /// </summary>
+        /// <value>The width of the generated image.</value>
+        private int ImageWidth => Width * resolution / 100;
+        /// <summary>
+        /// Gets the height of the generated image.
+        /// </summary>
+        /// <value>The height of the generated image.</value>
+        private int ImageHeight => Height * resolution / 100;
+        /// <summary>
         /// The base title for the window.
         /// </summary>
         readonly string BaseTitle;
@@ -70,7 +84,7 @@ namespace Mandelbrot
         protected override void OnLoad(EventArgs e)
         {
             CursorVisible = true;
-            texture = mandelbrot.GenerateTexture(Width * resolution / 100, Height * resolution / 100);
+            GenerateTexture(ImageWidth, ImageHeight);
         }
 
         protected override void OnMouseDown(MouseButtonEventArgs e)
@@ -125,6 +139,9 @@ namespace Mandelbrot
                     mode = mode.Next();
                     UpdateTitle();
                     break;
+                case Key.S:
+                    SaveImage();
+                    break;
             }
         }
 
@@ -151,6 +168,49 @@ namespace Mandelbrot
 
             SwapBuffers();
         }
+        /// <summary>
+        /// Saves the current image to the Screenshots folder.
+        /// </summary>
+        private void SaveImage()
+        {
+            Directory.CreateDirectory("Captured");
+            Bitmap bmp = mandelbrot.Render(ImageWidth, ImageHeight);
+            bmp.Save($"Captured/{DateTime.Now.ToShortDateString()}:{DateTime.Now.ToLongTimeString()}.bmp", ImageFormat.Bmp);
+        }
+        /// <summary>
+        /// Generates the image (<see cref="TextureTarget.Texture2D"/>) of the Mandelbrot set bounded by the internal parameters, with given resolution.
+        /// </summary>
+        /// <returns>The texture id.</returns>
+        /// <param name="width">Image width.</param>
+        /// <param name="height">Image height.</param>
+        private void GenerateTexture(int width, int height)
+        {
+            Bitmap bmp = mandelbrot.Render(width, height);
+
+            texture = GL.GenTexture();
+            GL.BindTexture(TextureTarget.Texture2D, texture);
+
+            BitmapData data = bmp.LockBits(
+                new Rectangle(0, 0, bmp.Width, bmp.Height),
+                ImageLockMode.ReadOnly,
+                bmp.PixelFormat
+                );
+
+            GL.TexImage2D(
+                TextureTarget.Texture2D,
+                0,
+                PixelInternalFormat.Rgba8,
+                data.Width, data.Height,
+                0,
+                OpenTK.Graphics.OpenGL.PixelFormat.Bgra,
+                PixelType.UnsignedByte,
+                data.Scan0);
+
+            bmp.UnlockBits(data);
+
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+        }
 
         /// <summary>
         /// Generates new texture using the <see cref="mandelbrot"/> <see cref="MandelbrotSet"/> instance.
@@ -160,7 +220,7 @@ namespace Mandelbrot
             GL.DeleteTexture(texture);
 
             DateTime start = DateTime.UtcNow;
-            texture = mandelbrot.GenerateTexture(Width * resolution / 100, Height * resolution / 100);
+            GenerateTexture(ImageWidth, ImageHeight);
             DateTime end = DateTime.UtcNow;
 
             UpdateTitle((end - start).TotalSeconds);

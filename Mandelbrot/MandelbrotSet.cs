@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 
-using OpenTK.Graphics.OpenGL;
 using System.Drawing;
-using System.Drawing.Imaging;
 
 namespace Mandelbrot
 {
@@ -83,43 +81,7 @@ namespace Mandelbrot
         /// <returns>The rendered bitmap object.</returns>
         /// <param name="width">Width.</param>
         /// <param name="height">Height.</param>
-        protected abstract Bitmap Render(int width, int height);
-        /// <summary>
-        /// Generates the image (<see cref="TextureTarget.Texture2D"/>) of the Mandelbrot set bounded by the internal parameters, with given resolution.
-        /// </summary>
-        /// <returns>The texture id.</returns>
-        /// <param name="width">Image width.</param>
-        /// <param name="height">Image height.</param>
-        public int GenerateTexture(int width, int height)
-        {
-            Bitmap bmp = Render(width, height);
-
-            int id = GL.GenTexture();
-            GL.BindTexture(TextureTarget.Texture2D, id);
-
-            BitmapData data = bmp.LockBits(
-                new Rectangle(0, 0, bmp.Width, bmp.Height),
-                ImageLockMode.ReadOnly,
-                bmp.PixelFormat
-                );
-
-            GL.TexImage2D(
-                TextureTarget.Texture2D,
-                0,
-                PixelInternalFormat.Rgba8,
-                data.Width, data.Height,
-                0,
-                OpenTK.Graphics.OpenGL.PixelFormat.Bgra,
-                PixelType.UnsignedByte,
-                data.Scan0);
-
-            bmp.UnlockBits(data);
-
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
-
-            return id;
-        }
+        public abstract Bitmap Render(int width, int height);
     }
 
     public class OpenCLMandelbrot : MandelbrotSet
@@ -130,7 +92,7 @@ namespace Mandelbrot
         /// <returns>The bitmap.</returns>
         /// <param name="width">Bitmap width.</param>
         /// <param name="height">Bitmap height.</param>
-        protected override Bitmap Render(int width, int height)
+        public override Bitmap Render(int width, int height)
         {
             GPUAcceleration.OpenCLRender(out IntPtr memory, (uint)width, (uint)height, (uint)N, (uint)R, xMin, xMax, yMin, yMax);
             var bmpFormat = System.Drawing.Imaging.PixelFormat.Format32bppArgb;
@@ -198,7 +160,7 @@ namespace Mandelbrot
         /// <returns>A <see cref="Bitmap"/> object</returns>
         /// <param name="width">Image width.</param>
         /// <param name="height">Image height.</param>
-        protected override Bitmap Render(int width, int height)
+        public override Bitmap Render(int width, int height)
         {
             Bitmap bmp = new Bitmap(width, height);
 
