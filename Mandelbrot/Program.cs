@@ -2,7 +2,7 @@
 
 namespace Mandelbrot
 {
-    public class Program
+    public static class Program
     {
         /// <summary>
         /// The entry point of the program, where the program control starts and ends.
@@ -10,10 +10,10 @@ namespace Mandelbrot
         [STAThread]
         public static void Main()
         {
-            GPUAcceleration.ListOpenCLDevices();
-            GPUAcceleration.PrecompileKernels();
+            GpuAcceleration.ListOpenCLDevices();
+            GpuAcceleration.PrecompileKernels();
 
-            Window mainWindow = new Window(1000, 625, new OpenCLMandelbrot());
+            Window mainWindow = new Window(1000, 625, new OpenClMandelbrot());
             mainWindow.Run();
         }
     }

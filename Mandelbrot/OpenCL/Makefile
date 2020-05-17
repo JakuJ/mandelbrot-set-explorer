@@ -1,5 +1,5 @@
 CC?=gcc
-CFLAGS=-Wall -O2
+CFLAGS=-Wall -O3
 
 all: OpenCLRendering.dll
 

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
-
 using System.Drawing;
+using System.Drawing.Imaging;
 
 namespace Mandelbrot
 {
@@ -13,50 +13,59 @@ namespace Mandelbrot
         /// <summary>
         /// The lower bound of the real axis.
         /// </summary>
-        public double xMin;
+        public double XMin;
+
         /// <summary>
         /// The upper bound of the real axis.
         /// </summary>
-        public double xMax;
+        public double XMax;
+
         /// <summary>
         /// The lower bound of the imaginary axis.
         /// </summary>
-        public double yMin;
+        public double YMin;
+
         /// <summary>
         /// The upper bound of the imaginary axis.
         /// </summary>
-        public double yMax;
+        public double YMax;
+
         /// <summary>
         /// Gets the window width.
         /// </summary>
         /// <value>The width.</value>
-        protected double Width => xMax - xMin;
+        protected double Width => XMax - XMin;
+
         /// <summary>
         /// Gets the window height.
         /// </summary>
         /// <value>The height.</value>
-        protected double Height => yMax - yMin;
+        protected double Height => YMax - YMin;
+
         /// <summary>
         /// The number of iterations before announcing a complex number non-divergent
         /// </summary>
         public int N;
+
         /// <summary>
         /// The escape radius.
         /// </summary>
         public int R;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="T:Mandelbrot.MandelbrotSet"/> class.
         /// </summary>
         protected MandelbrotSet()
         {
-            xMin = -2.5;
-            xMax = 1.5;
-            yMin = -1.25;
-            yMax = 1.25;
+            XMin = -2.5;
+            XMax = 1.5;
+            YMin = -1.25;
+            YMax = 1.25;
 
             N = 200;
             R = 2;
         }
+
         /// <summary>
         /// Zooms in or out at a specified location by a given factor.
         /// </summary>
@@ -65,16 +74,18 @@ namespace Mandelbrot
         /// <param name="factor">Zooming factor.</param>
         public void Zoom(double dx, double dy, double factor)
         {
-            double newX = xMin + Width * dx;
-            double newY = yMin + Height * dy;
+            double newX = XMin + Width * dx;
+            double newY = YMin + Height * dy;
 
-            dx = Width / (2 * factor); dy = Height / (2 * factor);
+            dx = Width / (2 * factor);
+            dy = Height / (2 * factor);
 
-            xMin = newX - dx;
-            xMax = newX + dx;
-            yMin = newY - dy;
-            yMax = newY + dy;
+            XMin = newX - dx;
+            XMax = newX + dx;
+            YMin = newY - dy;
+            YMax = newY + dy;
         }
+
         /// <summary>
         /// Render the bitmap for specified image width and height.
         /// </summary>
@@ -84,7 +95,7 @@ namespace Mandelbrot
         public abstract Bitmap Render(int width, int height);
     }
 
-    public class OpenCLMandelbrot : MandelbrotSet
+    public class OpenClMandelbrot : MandelbrotSet
     {
         /// <summary>
         /// Generates the <see cref="Bitmap"/> using native OpenCL Mandelbrot set implementation.
@@ -94,8 +105,16 @@ namespace Mandelbrot
         /// <param name="height">Bitmap height.</param>
         public override Bitmap Render(int width, int height)
         {
-            GPUAcceleration.OpenCLRender(out IntPtr memory, (uint)width, (uint)height, (uint)N, (uint)R, xMin, xMax, yMin, yMax);
-            var bmpFormat = System.Drawing.Imaging.PixelFormat.Format32bppArgb;
+            GpuAcceleration.OpenCLRender(out IntPtr memory,
+                (uint) width,
+                (uint) height,
+                (uint) N,
+                (uint) R,
+                XMin,
+                XMax,
+                YMin,
+                YMax);
+            const PixelFormat bmpFormat = System.Drawing.Imaging.PixelFormat.Format32bppArgb;
             return new Bitmap(width, height, Extensions.GetStride(width, bmpFormat), bmpFormat, memory);
         }
     }
@@ -103,57 +122,57 @@ namespace Mandelbrot
     public class ParallelMandelbrot : MandelbrotSet
     {
         /// <summary>
-        /// Returns a <see cref="Color"/> for a complex number (<paramref name="c_re"/> + <paramref name="c_im"/> i)
+        /// Returns a <see cref="Color"/> for a complex number (<paramref name="cRe"/> + <paramref name="cIm"/> i)
         /// </summary>
         /// <returns>The coloring.</returns>
-        /// <param name="c_re">Real part.</param>
-        /// <param name="c_im">Imaginary part.</param>
-        private Color DeepColoring(double c_re, double c_im)
+        /// <param name="cRe">Real part.</param>
+        /// <param name="cIm">Imaginary part.</param>
+        private Color DeepColoring(double cRe, double cIm)
         {
-            double z_re = 0;
-            double z_im = 0;
+            double zRe = 0;
+            double zIm = 0;
 
-            double z_re_sqr = 0;
-            double z_im_sqr = 0;
+            double zReSqr = 0;
+            double zImSqr = 0;
 
-            double Radius = R * R;
+            double radius = R * R;
 
-            for (int i = 0; i < N; i++)
+            for (var i = 0; i < N; i++)
             {
-                if (z_re_sqr + z_im_sqr > Radius)
+                if (zReSqr + zImSqr > radius)
                 {
-                    return GetColor(Math.Sqrt(z_re_sqr + z_im_sqr) / Math.Pow(2, i));
+                    return GetColor(Math.Sqrt(zReSqr + zImSqr) / Math.Pow(2, i));
                 }
 
-                z_im = z_re * z_im;
-                z_im += z_im + c_im;
+                zIm = zRe * zIm;
+                zIm += zIm + cIm;
 
-                z_re = z_re_sqr - z_im_sqr + c_re;
-                z_re_sqr = z_re * z_re;
-                z_im_sqr = z_im * z_im;
+                zRe = zReSqr - zImSqr + cRe;
+                zReSqr = zRe * zRe;
+                zImSqr = zIm * zIm;
             }
+
             return Color.FromArgb(0, 0, 0);
         }
+
         /// <summary>
-        /// Returns the <see cref="Color"/> for a positive value <paramref name="V"/>.
+        /// Returns the <see cref="Color"/> for a positive value <paramref name="v"/>.
         /// </summary>
         /// <returns>The color.</returns>
-        /// <param name="V">V.</param>
-        /// <param name="K">An arbitrary constant controlling the color.</param>
-        private Color GetColor(double V, double K = 2)
+        /// <param name="v">V.</param>
+        /// <param name="k">An arbitrary constant controlling the color.</param>
+        private static Color GetColor(double v, double k = 2)
         {
-            double a = 1.4427,
-                   b = 0.34,
-                   c = 0.18;
+            const double a = 1.4427, b = 0.34, c = 0.18;
+            double x = Math.Log(v) / k;
 
-            double x = Math.Log(V) / K;
-
-            int red = (int)Math.Floor(255 / 2 * (1 - Math.Cos(a * x)));
-            int green = (int)Math.Floor(255 / 2 * (1 - Math.Cos(b * x)));
-            int blue = (int)Math.Floor(255 / 2 * (1 - Math.Cos(c * x)));
+            var red = (int) Math.Floor(127 * (1 - Math.Cos(a * x)));
+            var green = (int) Math.Floor(127 * (1 - Math.Cos(b * x)));
+            var blue = (int) Math.Floor(127 * (1 - Math.Cos(c * x)));
 
             return Color.FromArgb(red, green, blue);
         }
+
         /// <summary>
         /// Calculates the Mandelbrot set using nested <see cref="Parallel.For(int, int, Action{int})"/> and generates a <see cref="Bitmap"/>;
         /// </summary>
@@ -171,7 +190,7 @@ namespace Mandelbrot
             {
                 Parallel.For(0, bmp.Height, y =>
                 {
-                    Color newColor = DeepColoring(xMin + x * dx, yMin + y * dy);
+                    Color newColor = DeepColoring(XMin + x * dx, YMin + y * dy);
                     bmp.SetPixel(x, y, newColor);
                 });
             });

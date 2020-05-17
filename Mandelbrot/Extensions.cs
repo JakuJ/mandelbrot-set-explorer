@@ -10,17 +10,16 @@ namespace Mandelbrot
             if (!typeof(T).IsEnum)
                 throw new ArgumentException($"Argument {typeof(T).FullName} is not an Enum");
 
-            T[] Arr = (T[])Enum.GetValues(src.GetType());
-            int i = Array.IndexOf(Arr, src) + 1;
-            return (Arr.Length == i) ? Arr[0] : Arr[i];
+            T[] arr = (T[]) Enum.GetValues(src.GetType());
+            int i = Array.IndexOf(arr, src) + 1;
+            return (arr.Length == i) ? arr[0] : arr[i];
         }
 
         public static int GetStride(int width, PixelFormat pxFormat)
         {
-            int bitsPerPixel = ((int)pxFormat >> 8) & 0xFF;
+            int bitsPerPixel = ((int) pxFormat >> 8) & 0xFF;
             int validBitsPerLine = width * bitsPerPixel;
-            int stride = (validBitsPerLine + 31) / 32 * 4;
-            return stride;
+            return (validBitsPerLine + 31) / 32 * 4;
         }
     }
 }
