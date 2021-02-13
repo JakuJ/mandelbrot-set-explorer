@@ -1,7 +1,7 @@
 ﻿using System;
-using System.Threading.Tasks;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Threading.Tasks;
 
 namespace Mandelbrot
 {
@@ -23,12 +23,12 @@ namespace Mandelbrot
         /// <summary>
         /// The lower bound of the imaginary axis.
         /// </summary>
-        public double YMin;
+        protected double YMin;
 
         /// <summary>
         /// The upper bound of the imaginary axis.
         /// </summary>
-        public double YMax;
+        protected double YMax;
 
         /// <summary>
         /// Gets the window width.
@@ -97,8 +97,9 @@ namespace Mandelbrot
 
     public class OpenClMandelbrot : MandelbrotSet
     {
+        /// <inheritdoc />
         /// <summary>
-        /// Generates the <see cref="Bitmap"/> using native OpenCL Mandelbrot set implementation.
+        /// Generates the <see cref="T:System.Drawing.Bitmap" /> using native OpenCL Mandelbrot set implementation.
         /// </summary>
         /// <returns>The bitmap.</returns>
         /// <param name="width">Bitmap width.</param>
@@ -106,15 +107,15 @@ namespace Mandelbrot
         public override Bitmap Render(int width, int height)
         {
             GpuAcceleration.OpenCLRender(out IntPtr memory,
-                (uint) width,
-                (uint) height,
-                (uint) N,
-                (uint) R,
-                XMin,
-                XMax,
-                YMin,
-                YMax);
-            const PixelFormat bmpFormat = System.Drawing.Imaging.PixelFormat.Format32bppArgb;
+                                         (uint)width,
+                                         (uint)height,
+                                         (uint)N,
+                                         (uint)R,
+                                         XMin,
+                                         XMax,
+                                         YMin,
+                                         YMax);
+            const PixelFormat bmpFormat = PixelFormat.Format32bppArgb;
             return new Bitmap(width, height, Extensions.GetStride(width, bmpFormat), bmpFormat, memory);
         }
     }
@@ -166,22 +167,23 @@ namespace Mandelbrot
             const double a = 1.4427, b = 0.34, c = 0.18;
             double x = Math.Log(v) / k;
 
-            var red = (int) Math.Floor(127 * (1 - Math.Cos(a * x)));
-            var green = (int) Math.Floor(127 * (1 - Math.Cos(b * x)));
-            var blue = (int) Math.Floor(127 * (1 - Math.Cos(c * x)));
+            var red = (int)Math.Floor(127 * (1 - Math.Cos(a * x)));
+            var green = (int)Math.Floor(127 * (1 - Math.Cos(b * x)));
+            var blue = (int)Math.Floor(127 * (1 - Math.Cos(c * x)));
 
             return Color.FromArgb(red, green, blue);
         }
 
+        /// <inheritdoc />
         /// <summary>
-        /// Calculates the Mandelbrot set using nested <see cref="Parallel.For(int, int, Action{int})"/> and generates a <see cref="Bitmap"/>;
+        /// Calculates the Mandelbrot set using nested <see cref="M:System.Threading.Tasks.Parallel.For(System.Int32,System.Int32,System.Action{System.Int32})" /> and generates a <see cref="T:System.Drawing.Bitmap" />;
         /// </summary>
-        /// <returns>A <see cref="Bitmap"/> object</returns>
+        /// <returns>A <see cref="T:System.Drawing.Bitmap" /> object</returns>
         /// <param name="width">Image width.</param>
         /// <param name="height">Image height.</param>
         public override Bitmap Render(int width, int height)
         {
-            Bitmap bmp = new Bitmap(width, height);
+            Bitmap bmp = new(width, height);
 
             double dx = Width / bmp.Width;
             double dy = Height / bmp.Height;
