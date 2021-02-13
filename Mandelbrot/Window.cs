@@ -2,6 +2,7 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using Mandelbrot.Rendering;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Input;
@@ -20,9 +21,9 @@ namespace Mandelbrot
         };
 
         /// <summary>
-        /// A <see cref="MouseWheelMode"/> instance directing which rendering parameter will the mouse wheel change.
+        /// The base title for the window.
         /// </summary>
-        private MouseWheelMode mode;
+        private const string BaseTitle = "Mandelbrot Set";
 
         /// <summary>
         /// The <see cref="MandelbrotSet"/> instance used to render the set.
@@ -30,19 +31,24 @@ namespace Mandelbrot
         private readonly MandelbrotSet mandelbrot;
 
         /// <summary>
-        /// Current image <see cref="TextureTarget.Texture2D"/> id.
+        /// A <see cref="MouseWheelMode"/> instance directing which rendering parameter will the mouse wheel change.
         /// </summary>
-        private int texture;
+        private MouseWheelMode mode = MouseWheelMode.ZoomFactor;
 
         /// <summary>
         /// The click zoom factor.
         /// </summary>
-        private double zoomFactor;
+        private double zoomFactor = 2;
 
         /// <summary>
         /// The ratio of the resolution of the generated image to the resolution of the actual window.
         /// </summary>
-        private int resolution;
+        private int resolution = 100;
+
+        /// <summary>
+        /// Current image <see cref="TextureTarget.Texture2D"/> id.
+        /// </summary>
+        private int texture;
 
         /// <summary>
         /// Gets the width of the generated image.
@@ -56,11 +62,6 @@ namespace Mandelbrot
         /// <value>The height of the generated image.</value>
         private int ImageHeight => Height * resolution / 100;
 
-        /// <summary>
-        /// The base title for the window.
-        /// </summary>
-        private readonly string baseTitle;
-
         /// <inheritdoc />
         /// <summary>
         /// Initializes a new instance of the <see cref="T:Mandelbrot.Window" /> class.
@@ -71,19 +72,12 @@ namespace Mandelbrot
         public Window(int width, int height, MandelbrotSet mandelbrot) : base(width, height)
         {
             this.mandelbrot = mandelbrot;
-            baseTitle = "Mandelbrot Set";
-            mode = MouseWheelMode.ZoomFactor;
-            zoomFactor = 2;
-            resolution = 100;
 
             UpdateTitle();
             GL.Enable(EnableCap.Texture2D);
         }
 
-        protected override void OnResize(EventArgs e)
-        {
-            GL.Viewport(0, 0, Width, Height);
-        }
+        protected override void OnResize(EventArgs e) => GL.Viewport(0, 0, Width, Height);
 
         protected override void OnLoad(EventArgs e)
         {
@@ -108,19 +102,19 @@ namespace Mandelbrot
             switch (mode)
             {
                 case MouseWheelMode.Resolution:
-                    resolution = Math.Max(25, resolution - (25 * e.Delta));
+                    resolution = Math.Max(25, resolution - 25 * e.Delta);
                     break;
                 case MouseWheelMode.EscapeRadius:
                     try
                     {
-                        int newRadius = (int)(mandelbrot.R / Math.Pow(2, e.Delta));
+                        var newRadius = (int)(mandelbrot.R / (double)(1 << e.Delta));
                         mandelbrot.R = Math.Min(32768, Math.Max(2, newRadius));
                     }
                     catch (ArithmeticException) { }
 
                     break;
                 case MouseWheelMode.Iterations:
-                    mandelbrot.N = Math.Max(25, mandelbrot.N - (25 * e.Delta));
+                    mandelbrot.N = Math.Max(25, mandelbrot.N - 25 * e.Delta);
                     break;
                 case MouseWheelMode.ZoomFactor:
                     zoomFactor = Math.Max(1, zoomFactor - e.Delta);
@@ -181,8 +175,7 @@ namespace Mandelbrot
         {
             Directory.CreateDirectory("Captured");
             Bitmap bmp = mandelbrot.Render(ImageWidth, ImageHeight);
-            bmp.Save($"Captured/{DateTime.Now.Day}_{DateTime.Now.ToLongTimeString()}.bmp",
-                     ImageFormat.Bmp);
+            bmp.Save($"Captured/{DateTime.Now.ToLongTimeString()}.bmp", ImageFormat.Bmp);
         }
 
         /// <summary>
@@ -216,10 +209,8 @@ namespace Mandelbrot
 
             bmp.UnlockBits(data);
 
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
-                            (int)TextureMinFilter.Linear);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,
-                            (int)TextureMagFilter.Linear);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
         }
 
         /// <summary>
@@ -244,7 +235,7 @@ namespace Mandelbrot
         {
             Title = string.Format(
                 "{0} – Res: {1}% - Zoom: {2}x, 10^{7:F1} - Speed: {3:F3}s - N: {4} - R: {5} - Mode: {6}",
-                baseTitle,
+                BaseTitle,
                 resolution,
                 zoomFactor,
                 timeElapsed,

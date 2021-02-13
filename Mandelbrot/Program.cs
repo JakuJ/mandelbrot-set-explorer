@@ -1,20 +1,28 @@
 ﻿using System;
+using Mandelbrot.Rendering;
 
 namespace Mandelbrot
 {
     public static class Program
     {
-        /// <summary>
-        /// The entry point of the program, where the program control starts and ends.
-        /// </summary>
         [STAThread]
         public static void Main()
         {
-            GpuAcceleration.ListOpenCLDevices();
-            GpuAcceleration.PrecompileKernels();
+            MandelbrotSet mandelbrot;
 
-            Window mainWindow = new(1000, 625, new OpenClMandelbrot());
-            mainWindow.Run();
+            try
+            {
+                OpenClInterop.InitializeOpenCl();
+                mandelbrot = new OpenClMandelbrot();
+            }
+            catch
+            {
+                Console.WriteLine("Failed to initialize OpenCL-based renderer.");
+                Console.WriteLine("Using Parallel.For as fallback.");
+                mandelbrot = new ParallelMandelbrot();
+            }
+
+            new Window(1000, 625, mandelbrot).Run();
         }
     }
 }

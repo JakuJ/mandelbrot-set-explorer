@@ -43,3 +43,6 @@ Thumbs.db
 # Generated binaries
 *.clbin
 *.dll
+
+# IDE
+.idea/
