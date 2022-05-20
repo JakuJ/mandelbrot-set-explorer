@@ -5,15 +5,14 @@ namespace Mandelbrot
 {
     public static class Program
     {
-        [STAThread]
         public static void Main()
         {
             MandelbrotSet mandelbrot;
 
             try
             {
-                OpenClInterop.InitializeOpenCl();
-                mandelbrot = new OpenClMandelbrot();
+                // OpenClInterop.InitializeOpenCl();
+                mandelbrot = new ParallelMandelbrot();
             }
             catch
             {
@@ -22,7 +21,8 @@ namespace Mandelbrot
                 mandelbrot = new ParallelMandelbrot();
             }
 
-            new Window(1000, 625, mandelbrot).Run();
+            using var window = new Window(1000, 625, mandelbrot);
+            window.Run();
         }
     }
 }

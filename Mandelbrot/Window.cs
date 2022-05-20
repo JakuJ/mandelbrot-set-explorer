@@ -1,11 +1,15 @@
 ﻿using System;
-using System.Drawing;
-using System.Drawing.Imaging;
+using System.Diagnostics;
+using SixLabors.ImageSharp;
 using System.IO;
 using Mandelbrot.Rendering;
-using OpenTK;
 using OpenTK.Graphics.OpenGL;
-using OpenTK.Input;
+using OpenTK.Mathematics;
+using OpenTK.Windowing.Common;
+using OpenTK.Windowing.Desktop;
+using OpenTK.Windowing.GraphicsLibraryFramework;
+using SixLabors.ImageSharp.Advanced;
+using SixLabors.ImageSharp.Processing;
 using PixelFormat = OpenTK.Graphics.OpenGL.PixelFormat;
 
 namespace Mandelbrot
@@ -18,130 +22,164 @@ namespace Mandelbrot
             ZoomFactor,
             Iterations,
             EscapeRadius
-        };
-
-        /// <summary>
-        /// The base title for the window.
-        /// </summary>
-        private const string BaseTitle = "Mandelbrot Set";
-
-        /// <summary>
-        /// The <see cref="MandelbrotSet"/> instance used to render the set.
-        /// </summary>
-        private readonly MandelbrotSet mandelbrot;
-
-        /// <summary>
-        /// A <see cref="MouseWheelMode"/> instance directing which rendering parameter will the mouse wheel change.
-        /// </summary>
-        private MouseWheelMode mode = MouseWheelMode.ZoomFactor;
-
-        /// <summary>
-        /// The click zoom factor.
-        /// </summary>
-        private double zoomFactor = 2;
-
-        /// <summary>
-        /// The ratio of the resolution of the generated image to the resolution of the actual window.
-        /// </summary>
-        private int resolution = 100;
-
-        /// <summary>
-        /// Current image <see cref="TextureTarget.Texture2D"/> id.
-        /// </summary>
-        private int texture;
-
-        /// <summary>
-        /// Gets the width of the generated image.
-        /// </summary>
-        /// <value>The width of the generated image.</value>
-        private int ImageWidth => Width * resolution / 100;
-
-        /// <summary>
-        /// Gets the height of the generated image.
-        /// </summary>
-        /// <value>The height of the generated image.</value>
-        private int ImageHeight => Height * resolution / 100;
-
-        /// <inheritdoc />
-        /// <summary>
-        /// Initializes a new instance of the <see cref="T:Mandelbrot.Window" /> class.
-        /// </summary>
-        /// <param name="width">Window width.</param>
-        /// <param name="height">Window height.</param>
-        /// <param name="mandelbrot"><see cref="T:Mandelbrot.MandelbrotSet" /> instance used by this <see cref="T:Mandelbrot.Window" /></param>
-        public Window(int width, int height, MandelbrotSet mandelbrot) : base(width, height)
-        {
-            this.mandelbrot = mandelbrot;
-
-            UpdateTitle();
-            GL.Enable(EnableCap.Texture2D);
         }
 
-        protected override void OnResize(EventArgs e) => GL.Viewport(0, 0, Width, Height);
-
-        protected override void OnLoad(EventArgs e)
+        private readonly float[] vertices =
         {
-            CursorVisible = true;
-            GenerateTexture(ImageWidth, ImageHeight);
+            -1f, -1f, 0f, 0f, 0f,
+            1f, -1f, 0f, 1f, 0f,
+            1f, 1f, 0f, 1f, 1f,
+            -1f, 1f, 0f, 0f, 1f
+        };
+
+        private const string BaseTitle = "Mandelbrot Set";
+        private readonly MandelbrotSet mandelbrot;
+        private MouseWheelMode mode = MouseWheelMode.ZoomFactor;
+        private double zoomFactor = 2;
+        private int resolution = 100;
+        private readonly int handle;
+        private int vertexBufferObject;
+        private int vertexArrayObject;
+        private readonly Shader shader;
+        private byte[] data;
+
+        private int ImageWidth => Size.X * resolution / 100;
+
+        private int ImageHeight => Size.Y * resolution / 100;
+
+        public Window(int width, int height, MandelbrotSet mandelbrot)
+            : base(GameWindowSettings.Default,
+                new NativeWindowSettings
+                {
+                    Profile = ContextProfile.Core,
+                    APIVersion = Version.Parse("3.3"),
+                    Size = new Vector2i(width, height),
+                    Flags = ContextFlags.ForwardCompatible
+                })
+        {
+            this.mandelbrot = mandelbrot;
+            shader = new Shader("shader.vert", "shader.frag");
+
+            InitData();
+            UpdateTitle();
+
+            handle = GL.GenTexture();
+            GL.BindTexture(TextureTarget.Texture2D, handle);
+
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int) TextureWrapMode.Clamp);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int) TextureWrapMode.Clamp);
+
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int) TextureMinFilter.Linear);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int) TextureMagFilter.Linear);
+        }
+
+        protected override void OnResize(ResizeEventArgs e)
+        {
+            GL.Viewport(0, 0, Size.X, Size.Y);
+            InitData();
+            base.OnResize(e);
+        }
+
+        protected override void OnLoad()
+        {
+            base.OnLoad();
+            shader.Use();
+            GL.LoadIdentity();
+
+            GL.ClearColor(0.2f, 0.3f, 0.3f, 1f);
+
+            vertexBufferObject = GL.GenBuffer();
+            GL.BindBuffer(BufferTarget.ArrayBuffer, vertexBufferObject);
+            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
+
+            var positionLocation = shader.GetAttribLocation("aPosition");
+            vertexArrayObject = GL.GenVertexArray();
+            GL.BindVertexArray(vertexArrayObject);
+            GL.VertexAttribPointer(positionLocation, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
+            GL.EnableVertexAttribArray(positionLocation);
+
+            var texCoordLocation = shader.GetAttribLocation("aTexCoord");
+            GL.EnableVertexAttribArray(texCoordLocation);
+            GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
+            
+            Render();
         }
 
         protected override void OnMouseDown(MouseButtonEventArgs e)
         {
+            var factor = e.Button == MouseButton.Left ? zoomFactor : 1 / zoomFactor;
+
+            mandelbrot.Zoom(MousePosition.X / (double) Size.X, MousePosition.Y / (double) Size.Y, factor);
+            Render();
+
             base.OnMouseDown(e);
-
-            double factor = e.Button == MouseButton.Left ? zoomFactor : 1 / zoomFactor;
-
-            mandelbrot.Zoom(e.X / (double)Width, e.Y / (double)Height, factor);
-            RedrawTexture();
         }
 
         protected override void OnMouseWheel(MouseWheelEventArgs e)
         {
-            base.OnMouseWheel(e);
+            var delta = (int) MouseState.Delta.LengthFast;
 
             switch (mode)
             {
                 case MouseWheelMode.Resolution:
-                    resolution = Math.Max(25, resolution - 25 * e.Delta);
+                    resolution = Math.Max(25, resolution - 25 * delta);
                     break;
                 case MouseWheelMode.EscapeRadius:
                     try
                     {
-                        var newRadius = (int)(mandelbrot.R / (double)(1 << e.Delta));
+                        var newRadius = (int) (mandelbrot.R / (double) (1 << delta));
                         mandelbrot.R = Math.Min(32768, Math.Max(2, newRadius));
                     }
-                    catch (ArithmeticException) { }
+                    catch (ArithmeticException)
+                    {
+                    }
 
                     break;
                 case MouseWheelMode.Iterations:
-                    mandelbrot.N = Math.Max(25, mandelbrot.N - 25 * e.Delta);
+                    mandelbrot.N = Math.Max(25, mandelbrot.N - 25 * delta);
                     break;
                 case MouseWheelMode.ZoomFactor:
-                    zoomFactor = Math.Max(1, zoomFactor - e.Delta);
+                    zoomFactor = Math.Max(1, zoomFactor - delta);
                     UpdateTitle();
                     return;
             }
 
-            RedrawTexture();
+            Render();
+            base.OnMouseWheel(e);
         }
 
         protected override void OnKeyDown(KeyboardKeyEventArgs e)
         {
-            base.OnKeyDown(e);
-
             switch (e.Key)
             {
-                case Key.Escape:
+                case Keys.Escape:
                     Close();
                     break;
-                case Key.Space:
+                case Keys.Space:
                     mode = mode.Next();
                     UpdateTitle();
                     break;
-                case Key.S:
+                case Keys.S:
                     SaveImage();
                     break;
             }
+
+            base.OnKeyDown(e);
+        }
+
+        protected override void OnUnload()
+        {
+            // Unbind all the resources by binding the targets to 0/null.
+            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+            GL.BindVertexArray(0);
+            GL.UseProgram(0);
+
+            // Delete all the resources.
+            GL.DeleteBuffer(vertexBufferObject);
+            GL.DeleteVertexArray(vertexArrayObject);
+            GL.DeleteProgram(shader.Handle);
+
+            base.OnUnload();
         }
 
         protected override void OnRenderFrame(FrameEventArgs e)
@@ -149,92 +187,71 @@ namespace Mandelbrot
             base.OnRenderFrame(e);
 
             GL.Clear(ClearBufferMask.ColorBufferBit);
-            GL.Begin(PrimitiveType.Quads);
 
-            GL.TexCoord2(0, 0);
-            GL.Vertex2(-1, 1);
-
-            GL.TexCoord2(1, 0);
-            GL.Vertex2(1, 1);
-
-            GL.TexCoord2(1, 1);
-            GL.Vertex2(1, -1);
-
-            GL.TexCoord2(0, 1);
-            GL.Vertex2(-1, -1);
-
-            GL.End();
+            GL.BindVertexArray(vertexArrayObject);
+            GL.DrawArrays(PrimitiveType.TriangleFan, 0, 4);
 
             SwapBuffers();
         }
 
-        /// <summary>
-        /// Saves the current image to the Screenshots folder.
-        /// </summary>
         private void SaveImage()
         {
             Directory.CreateDirectory("Captured");
-            Bitmap bmp = mandelbrot.Render(ImageWidth, ImageHeight);
-            bmp.Save($"Captured/{DateTime.Now.ToLongTimeString()}.bmp", ImageFormat.Bmp);
+            var img = mandelbrot.Render(ImageWidth, ImageHeight);
+            img.SaveAsBmp($"Captured/{DateTime.Now.ToLongTimeString()}.bmp");
         }
 
-        /// <summary>
-        /// Generates the image (<see cref="TextureTarget.Texture2D"/>) of the Mandelbrot set bounded by the internal parameters, with given resolution.
-        /// </summary>
-        /// <returns>The texture id.</returns>
-        /// <param name="width">Image width.</param>
-        /// <param name="height">Image height.</param>
-        private void GenerateTexture(int width, int height)
+        private void InitData()
         {
-            Bitmap bmp = mandelbrot.Render(width, height);
+            data = new byte[4 * ImageWidth * ImageHeight];
+            Console.WriteLine($"Allocating array of size {ImageWidth} * {ImageHeight}");
+        }
 
-            texture = GL.GenTexture();
-            GL.BindTexture(TextureTarget.Texture2D, texture);
+        private void GenerateTexture()
+        {
+            var image = mandelbrot.Render(ImageWidth, ImageHeight);
+            image.Mutate(x => x.Flip(FlipMode.Vertical));
 
-            BitmapData data = bmp.LockBits(
-                new Rectangle(0, 0, bmp.Width, bmp.Height),
-                ImageLockMode.ReadOnly,
-                bmp.PixelFormat
-            );
+            var i = 0;
+            for (var y = 0; y < image.Height; y++)
+            {
+                var row = image.DangerousGetPixelRowMemory(y).Span;
+                for (var x = 0; x < image.Width; x++)
+                {
+                    var color = row[x];
+                    data[i++] = color.R;
+                    data[i++] = color.G;
+                    data[i++] = color.B;
+                    data[i++] = color.A;
+                }
+            }
 
             GL.TexImage2D(
                 TextureTarget.Texture2D,
                 0,
-                PixelInternalFormat.Rgba8,
-                data.Width, data.Height,
+                PixelInternalFormat.Rgba,
+                image.Width,
+                image.Height,
                 0,
-                PixelFormat.Bgra,
+                PixelFormat.Rgba,
                 PixelType.UnsignedByte,
-                data.Scan0);
-
-            bmp.UnlockBits(data);
-
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+                data);
         }
 
-        /// <summary>
-        /// Generates new texture using the <see cref="mandelbrot"/> <see cref="MandelbrotSet"/> instance.
-        /// </summary>
-        private void RedrawTexture()
+        private void Render()
         {
-            GL.DeleteTexture(texture);
+            Stopwatch stopwatch = new();
+            stopwatch.Start();
 
-            DateTime start = DateTime.UtcNow;
-            GenerateTexture(ImageWidth, ImageHeight);
-            DateTime end = DateTime.UtcNow;
+            GenerateTexture();
 
-            UpdateTitle((end - start).TotalSeconds);
+            UpdateTitle(stopwatch.ElapsedMilliseconds);
         }
 
-        /// <summary>
-        /// Updates the window title.
-        /// </summary>
-        /// <param name="timeElapsed">Last rendering time.</param>
         private void UpdateTitle(double timeElapsed = 0)
         {
             Title = string.Format(
-                "{0} – Res: {1}% - Zoom: {2}x, 10^{7:F1} - Speed: {3:F3}s - N: {4} - R: {5} - Mode: {6}",
+                "{0} – Res: {1}% - Zoom: {2}x, 10^{7:F1} - Speed: {3}ms - N: {4} - R: {5} - Mode: {6}",
                 BaseTitle,
                 resolution,
                 zoomFactor,

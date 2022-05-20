@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace Mandelbrot.Rendering
 {
@@ -70,11 +71,11 @@ namespace Mandelbrot.Rendering
         }
 
         /// <summary>
-        /// Render the bitmap for specified image width and height.
+        /// Render the image with specified width and height.
         /// </summary>
-        /// <returns>The rendered bitmap object.</returns>
+        /// <returns>The rendered image object.</returns>
         /// <param name="width">Width.</param>
         /// <param name="height">Height.</param>
-        public abstract Bitmap Render(int width, int height);
+        public abstract Image<Rgba32> Render(int width, int height);
     }
 }

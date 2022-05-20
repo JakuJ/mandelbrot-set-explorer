@@ -1,18 +1,13 @@
 using System;
-using System.Drawing;
 using System.Threading.Tasks;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace Mandelbrot.Rendering
 {
     public class ParallelMandelbrot : MandelbrotSet
     {
-        /// <summary>
-        /// Returns a <see cref="Color"/> for a complex number (<paramref name="cRe"/> + <paramref name="cIm"/> i)
-        /// </summary>
-        /// <returns>The coloring.</returns>
-        /// <param name="cRe">Real part.</param>
-        /// <param name="cIm">Imaginary part.</param>
-        private Color DeepColoring(double cRe, double cIm)
+        private Rgba32 DeepColoring(double cRe, double cIm)
         {
             double zRe = 0;
             double zIm = 0;
@@ -37,25 +32,19 @@ namespace Mandelbrot.Rendering
                 zImSqr = zIm * zIm;
             }
 
-            return Color.Black;
+            return new Rgba32(0, 1f, 0);
         }
 
-        /// <summary>
-        /// Returns the <see cref="Color"/> for a positive value <paramref name="v"/>.
-        /// </summary>
-        /// <returns>The color.</returns>
-        /// <param name="v">V.</param>
-        /// <param name="k">An arbitrary constant controlling the color.</param>
-        private static Color GetColor(double v, double k = 2)
+        private static Rgba32 GetColor(double v, float k = 2)
         {
-            const double a = 1.4427, b = 0.34, c = 0.18;
-            double x = Math.Log(v) / k;
+            const float a = 1.4427f, b = 0.34f, c = 0.18f;
+            var x = MathF.Log((float) v) / k;
 
-            var red = (int)Math.Floor(127 * (1 - Math.Cos(a * x)));
-            var green = (int)Math.Floor(127 * (1 - Math.Cos(b * x)));
-            var blue = (int)Math.Floor(127 * (1 - Math.Cos(c * x)));
+            var red = 0.5f * (1f + MathF.Cos(a * x));
+            var green = 0.5f * (1f + MathF.Cos(b * x));
+            var blue = 0.5f * (1f + MathF.Cos(c * x));
 
-            return Color.FromArgb(red, green, blue);
+            return new Rgba32(red, green, blue);
         }
 
         /// <inheritdoc />
@@ -65,24 +54,23 @@ namespace Mandelbrot.Rendering
         /// <returns>A <see cref="T:System.Drawing.Bitmap" /> object</returns>
         /// <param name="width">Image width.</param>
         /// <param name="height">Image height.</param>
-        public override Bitmap Render(int width, int height)
+        public override Image<Rgba32> Render(int width, int height)
         {
-            Bitmap bmp = new(width, height);
+            Image<Rgba32> img = new(width, height);
 
-            double dx = Width / bmp.Width;
-            double dy = Height / bmp.Height;
+            var dx = Width / img.Width;
+            var dy = Height / img.Height;
 
-            Parallel.For(0, bmp.Width, x =>
-            {
-                // TODO: Maybe just one loop?
-                Parallel.For(0, bmp.Height, y =>
+            Parallel.For(0L,
+                img.Width,
+                x =>
                 {
-                    Color newColor = DeepColoring(XMin + x * dx, YMin + y * dy);
-                    bmp.SetPixel(x, y, newColor);
+                    Parallel.For(0L,
+                        img.Height,
+                        y => { img[(int) x, (int) y] = DeepColoring(XMin + x * dx, YMin + y * dy); });
                 });
-            });
 
-            return bmp;
+            return img;
         }
     }
 }
