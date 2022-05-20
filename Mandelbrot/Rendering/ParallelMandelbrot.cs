@@ -32,7 +32,7 @@ namespace Mandelbrot.Rendering
                 zImSqr = zIm * zIm;
             }
 
-            return new Rgba32(0, 1f, 0);
+            return Color.Black;
         }
 
         private static Rgba32 GetColor(double v, float k = 2)
@@ -40,9 +40,9 @@ namespace Mandelbrot.Rendering
             const float a = 1.4427f, b = 0.34f, c = 0.18f;
             var x = MathF.Log((float) v) / k;
 
-            var red = 0.5f * (1f + MathF.Cos(a * x));
-            var green = 0.5f * (1f + MathF.Cos(b * x));
-            var blue = 0.5f * (1f + MathF.Cos(c * x));
+            var red = 0.5f * (1f - MathF.Cos(a * x));
+            var green = 0.5f * (1f - MathF.Cos(b * x));
+            var blue = 0.5f * (1f - MathF.Cos(c * x));
 
             return new Rgba32(red, green, blue);
         }
@@ -62,12 +62,13 @@ namespace Mandelbrot.Rendering
             var dy = Height / img.Height;
 
             Parallel.For(0L,
-                img.Width,
-                x =>
+                img.Width * img.Height,
+                ix =>
                 {
-                    Parallel.For(0L,
-                        img.Height,
-                        y => { img[(int) x, (int) y] = DeepColoring(XMin + x * dx, YMin + y * dy); });
+                    int i = (int) ix;
+                    int x = i % img.Width;
+                    int y = i / img.Width;
+                    img[x, y] = DeepColoring(XMin + x * dx, YMin + y * dy);
                 });
 
             return img;

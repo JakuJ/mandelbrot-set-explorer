@@ -8,8 +8,6 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using SixLabors.ImageSharp.Advanced;
-using SixLabors.ImageSharp.Processing;
 using PixelFormat = OpenTK.Graphics.OpenGL.PixelFormat;
 
 namespace Mandelbrot
@@ -37,11 +35,23 @@ namespace Mandelbrot
         private MouseWheelMode mode = MouseWheelMode.ZoomFactor;
         private double zoomFactor = 2;
         private int resolution = 100;
-        private readonly int handle;
         private int vertexBufferObject;
         private int vertexArrayObject;
         private readonly Shader shader;
-        private byte[] data;
+        private byte[] unsafeData = Array.Empty<byte>();
+
+        private byte[] Data
+        {
+            get
+            {
+                if (unsafeData.Length != ImageWidth * ImageHeight * 4)
+                {
+                    unsafeData = new byte[4 * ImageWidth * ImageHeight];
+                }
+
+                return unsafeData;
+            }
+        }
 
         private int ImageWidth => Size.X * resolution / 100;
 
@@ -60,10 +70,9 @@ namespace Mandelbrot
             this.mandelbrot = mandelbrot;
             shader = new Shader("shader.vert", "shader.frag");
 
-            InitData();
             UpdateTitle();
 
-            handle = GL.GenTexture();
+            var handle = GL.GenTexture();
             GL.BindTexture(TextureTarget.Texture2D, handle);
 
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int) TextureWrapMode.Clamp);
@@ -75,14 +84,12 @@ namespace Mandelbrot
 
         protected override void OnResize(ResizeEventArgs e)
         {
-            GL.Viewport(0, 0, Size.X, Size.Y);
-            InitData();
+            GL.Viewport(0, 0, Size.X * 2, Size.Y * 2);
             base.OnResize(e);
         }
 
         protected override void OnLoad()
         {
-            base.OnLoad();
             shader.Use();
             GL.LoadIdentity();
 
@@ -101,8 +108,9 @@ namespace Mandelbrot
             var texCoordLocation = shader.GetAttribLocation("aTexCoord");
             GL.EnableVertexAttribArray(texCoordLocation);
             GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
-            
+
             Render();
+            base.OnLoad();
         }
 
         protected override void OnMouseDown(MouseButtonEventArgs e)
@@ -117,7 +125,7 @@ namespace Mandelbrot
 
         protected override void OnMouseWheel(MouseWheelEventArgs e)
         {
-            var delta = (int) MouseState.Delta.LengthFast;
+            var delta = MathF.Sign(MouseState.ScrollDelta.Y);
 
             switch (mode)
             {
@@ -127,8 +135,7 @@ namespace Mandelbrot
                 case MouseWheelMode.EscapeRadius:
                     try
                     {
-                        var newRadius = (int) (mandelbrot.R / (double) (1 << delta));
-                        mandelbrot.R = Math.Min(32768, Math.Max(2, newRadius));
+                        mandelbrot.R = Math.Min(32768, Math.Max(2, delta == 1 ? mandelbrot.R * 2 : mandelbrot.R / 2));
                     }
                     catch (ArithmeticException)
                     {
@@ -201,30 +208,27 @@ namespace Mandelbrot
             img.SaveAsBmp($"Captured/{DateTime.Now.ToLongTimeString()}.bmp");
         }
 
-        private void InitData()
-        {
-            data = new byte[4 * ImageWidth * ImageHeight];
-            Console.WriteLine($"Allocating array of size {ImageWidth} * {ImageHeight}");
-        }
-
         private void GenerateTexture()
         {
             var image = mandelbrot.Render(ImageWidth, ImageHeight);
-            image.Mutate(x => x.Flip(FlipMode.Vertical));
 
-            var i = 0;
-            for (var y = 0; y < image.Height; y++)
+            var data = Data;
+
+            image.ProcessPixelRows(access =>
             {
-                var row = image.DangerousGetPixelRowMemory(y).Span;
-                for (var x = 0; x < image.Width; x++)
+                var i = 0;
+                for (var y = image.Height - 1; y >= 0; --y)
                 {
-                    var color = row[x];
-                    data[i++] = color.R;
-                    data[i++] = color.G;
-                    data[i++] = color.B;
-                    data[i++] = color.A;
+                    var row = access.GetRowSpan(y);
+                    foreach (var color in row)
+                    {
+                        data[i++] = color.R;
+                        data[i++] = color.G;
+                        data[i++] = color.B;
+                        data[i++] = color.A;
+                    }
                 }
-            }
+            });
 
             GL.TexImage2D(
                 TextureTarget.Texture2D,
