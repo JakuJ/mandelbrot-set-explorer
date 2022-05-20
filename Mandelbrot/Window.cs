@@ -34,24 +34,11 @@ namespace Mandelbrot
         private readonly MandelbrotSet mandelbrot;
         private MouseWheelMode mode = MouseWheelMode.ZoomFactor;
         private double zoomFactor = 2;
-        private int resolution = 100;
+        private int resolution = 200;
         private int vertexBufferObject;
         private int vertexArrayObject;
         private readonly Shader shader;
-        private byte[] unsafeData = Array.Empty<byte>();
-
-        private byte[] Data
-        {
-            get
-            {
-                if (unsafeData.Length != ImageWidth * ImageHeight * 4)
-                {
-                    unsafeData = new byte[4 * ImageWidth * ImageHeight];
-                }
-
-                return unsafeData;
-            }
-        }
+        private byte[] imageBuffer = Array.Empty<byte>();
 
         private int ImageWidth => Size.X * resolution / 100;
 
@@ -135,7 +122,7 @@ namespace Mandelbrot
                 case MouseWheelMode.EscapeRadius:
                     try
                     {
-                        mandelbrot.R = Math.Min(32768, Math.Max(2, delta == 1 ? mandelbrot.R * 2 : mandelbrot.R / 2));
+                        mandelbrot.R = Math.Min(32768, Math.Max(2, mandelbrot.R + delta));
                     }
                     catch (ArithmeticException)
                     {
@@ -212,7 +199,10 @@ namespace Mandelbrot
         {
             var image = mandelbrot.Render(ImageWidth, ImageHeight);
 
-            var data = Data;
+            if (imageBuffer.Length < ImageWidth * ImageHeight * 4)
+            {
+                imageBuffer = new byte[4 * ImageWidth * ImageHeight];
+            }
 
             image.ProcessPixelRows(access =>
             {
@@ -222,10 +212,10 @@ namespace Mandelbrot
                     var row = access.GetRowSpan(y);
                     foreach (var color in row)
                     {
-                        data[i++] = color.R;
-                        data[i++] = color.G;
-                        data[i++] = color.B;
-                        data[i++] = color.A;
+                        imageBuffer[i++] = color.R;
+                        imageBuffer[i++] = color.G;
+                        imageBuffer[i++] = color.B;
+                        imageBuffer[i++] = color.A;
                     }
                 }
             });
@@ -239,7 +229,7 @@ namespace Mandelbrot
                 0,
                 PixelFormat.Rgba,
                 PixelType.UnsignedByte,
-                data);
+                imageBuffer);
         }
 
         private void Render()

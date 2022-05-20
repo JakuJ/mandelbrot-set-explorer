@@ -7,6 +7,31 @@ namespace Mandelbrot.Rendering
 {
     public class ParallelMandelbrot : MandelbrotSet
     {
+        private Image<Rgba32> img = new(1, 1);
+
+        public override Image<Rgba32> Render(int width, int height)
+        {
+            if (img.Width != width || img.Height != height)
+            {
+                img = new Image<Rgba32>(width, height);
+            }
+
+            var dx = Width / img.Width;
+            var dy = Height / img.Height;
+
+            Parallel.For(0,
+                img.Height,
+                y =>
+                {
+                    for (var x = 0; x < img.Width; ++x)
+                    {
+                        img[x, y] = DeepColoring(XMin + x * dx, YMin + y * dy);
+                    }
+                });
+
+            return img;
+        }
+
         private Rgba32 DeepColoring(double cRe, double cIm)
         {
             double zRe = 0;
@@ -21,7 +46,7 @@ namespace Mandelbrot.Rendering
             {
                 if (zReSqr + zImSqr > radius)
                 {
-                    return GetColor(Math.Sqrt(zReSqr + zImSqr) / (1 << i));
+                    return GetColor(i, (float) (zReSqr + zImSqr));
                 }
 
                 zIm = zRe * zIm;
@@ -35,43 +60,16 @@ namespace Mandelbrot.Rendering
             return Color.Black;
         }
 
-        private static Rgba32 GetColor(double v, float k = 2)
+        private static Rgba32 GetColor(int i, float zs)
         {
-            const float a = 1.4427f, b = 0.34f, c = 0.18f;
-            var x = MathF.Log((float) v) / k;
+            const float b = 0.23570226f, c = 0.124526508f;
+            var x = i + MathF.Log2(zs) * .5f;
 
-            var red = 0.5f * (1f - MathF.Cos(a * x));
-            var green = 0.5f * (1f - MathF.Cos(b * x));
-            var blue = 0.5f * (1f - MathF.Cos(c * x));
+            var red = .5f * (1 - MathF.Cos(x));
+            var green = .5f * (1 - MathF.Cos(b * x));
+            var blue = .5f * (1 - MathF.Cos(c * x));
 
             return new Rgba32(red, green, blue);
-        }
-
-        /// <inheritdoc />
-        /// <summary>
-        /// Calculates the Mandelbrot set using nested <see cref="M:System.Threading.Tasks.Parallel.For(System.Int32,System.Int32,System.Action{System.Int32})" /> and generates a <see cref="T:System.Drawing.Bitmap" />;
-        /// </summary>
-        /// <returns>A <see cref="T:System.Drawing.Bitmap" /> object</returns>
-        /// <param name="width">Image width.</param>
-        /// <param name="height">Image height.</param>
-        public override Image<Rgba32> Render(int width, int height)
-        {
-            Image<Rgba32> img = new(width, height);
-
-            var dx = Width / img.Width;
-            var dy = Height / img.Height;
-
-            Parallel.For(0L,
-                img.Width * img.Height,
-                ix =>
-                {
-                    int i = (int) ix;
-                    int x = i % img.Width;
-                    int y = i / img.Width;
-                    img[x, y] = DeepColoring(XMin + x * dx, YMin + y * dy);
-                });
-
-            return img;
         }
     }
 }
