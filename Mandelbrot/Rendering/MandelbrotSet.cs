@@ -21,10 +21,12 @@ namespace Mandelbrot.Rendering
 
         protected double Height => yMax - YMin;
 
-        public void Zoom(double dx, double dy, double factor)
+        public void Zoom(double dx, double dy, double factor = 0)
         {
-            double newX = XMin + Width * dx;
-            double newY = YMin + Height * dy;
+            factor = 1 + factor * 0.01;
+
+            var newX = XMin + Width * dx;
+            var newY = YMin + Height * dy;
 
             dx = Width / (2 * factor);
             dy = Height / (2 * factor);

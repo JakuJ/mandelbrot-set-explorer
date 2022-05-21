@@ -65,8 +65,7 @@ namespace Mandelbrot.Rendering
 
         private Rgba32 DeepColoring(double cRe, double cIm)
         {
-            double zRe = 0;
-            double zIm = 0;
+            double zRe = 0, zIm = 0;
 
             double zReSqr = 0;
             double zImSqr = 0;
@@ -80,8 +79,7 @@ namespace Mandelbrot.Rendering
                     return GetColor(i, (float) (zReSqr + zImSqr));
                 }
 
-                zIm = zRe * zIm;
-                zIm += zIm + cIm;
+                zIm = Math.FusedMultiplyAdd(zIm, zRe * 2, cIm);
 
                 zRe = zReSqr - zImSqr + cRe;
                 zReSqr = zRe * zRe;
@@ -94,7 +92,7 @@ namespace Mandelbrot.Rendering
         private static Rgba32 GetColor(int i, float zs)
         {
             const float b = 0.23570226f, c = 0.124526508f;
-            var x = i + MathF.Log2(zs) * .5f;
+            var x = MathF.FusedMultiplyAdd(.5f, MathF.Log2(zs), i);
 
             var red = .5f * (1 - MathF.Cos(x));
             var green = .5f * (1 - MathF.Cos(b * x));
