@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using SixLabors.ImageSharp;
 using System.IO;
 using Mandelbrot.Rendering;
 using OpenTK.Graphics.OpenGL;
@@ -8,7 +7,8 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using PixelFormat = OpenTK.Graphics.OpenGL.PixelFormat;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
 
 namespace Mandelbrot
 {
@@ -38,7 +38,6 @@ namespace Mandelbrot
         private int vertexBufferObject;
         private int vertexArrayObject;
         private readonly Shader shader;
-        private byte[] imageBuffer = Array.Empty<byte>();
 
         private int ImageWidth => Size.X * resolution / 100;
 
@@ -62,11 +61,8 @@ namespace Mandelbrot
             var handle = GL.GenTexture();
             GL.BindTexture(TextureTarget.Texture2D, handle);
 
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int) TextureWrapMode.Clamp);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int) TextureWrapMode.Clamp);
-
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int) TextureMinFilter.Linear);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int) TextureMagFilter.Linear);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int) TextureMinFilter.Nearest);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int) TextureMagFilter.Nearest);
         }
 
         protected override void OnResize(ResizeEventArgs e)
@@ -191,31 +187,26 @@ namespace Mandelbrot
         private void SaveImage()
         {
             Directory.CreateDirectory("Captured");
-            var img = mandelbrot.Render(ImageWidth, ImageHeight);
+
+            var img = mandelbrot.RenderToImage(ImageWidth, ImageHeight);
+            img.Mutate(x => x.Flip(FlipMode.Vertical));
             img.SaveAsBmp($"Captured/{DateTime.Now.ToLongTimeString()}.bmp");
         }
 
-        private void GenerateTexture()
+        private unsafe void GenerateTexture()
         {
             var image = mandelbrot.Render(ImageWidth, ImageHeight);
-
-            if (imageBuffer.Length < ImageWidth * ImageHeight * 4)
-            {
-                imageBuffer = new byte[4 * ImageWidth * ImageHeight];
-            }
-            
-            image.CopyPixelDataTo(imageBuffer);
 
             GL.TexImage2D(
                 TextureTarget.Texture2D,
                 0,
                 PixelInternalFormat.Rgba,
-                image.Width,
-                image.Height,
+                ImageWidth,
+                ImageHeight,
                 0,
                 PixelFormat.Rgba,
                 PixelType.UnsignedByte,
-                imageBuffer);
+                (IntPtr) image);
         }
 
         private void Render()

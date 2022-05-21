@@ -15,7 +15,7 @@ namespace Mandelbrot.Rendering
             GC.SuppressFinalize(this);
         }
 
-        public override Image<Rgba32> Render(int width, int height)
+        public override unsafe Rgba32* Render(int width, int height)
         {
             if (image.Width != width || image.Height != height)
             {
@@ -29,26 +29,35 @@ namespace Mandelbrot.Rendering
             var dx = Width / image.Width;
             var dy = Height / image.Height;
 
-            if (!image.DangerousTryGetSinglePixelMemory(out Memory<Rgba32> memory))
+            if (!image.DangerousTryGetSinglePixelMemory(out var memory))
             {
                 throw new Exception("This can only happen with multi-GB images or when PreferContiguousImageBuffers is not set to true.");
             }
 
+            using var pinHandle = memory.Pin();
+            var ptr = (Rgba32*) pinHandle.Pointer;
+
+            Parallel.For(0,
+                image.Height,
+                y =>
+                {
+                    var row = ptr + y * image.Width;
+                    var clrY = YMin + y * dy;
+
+                    for (var x = 0; x < image.Width; ++x)
+                    {
+                        *row++ = DeepColoring(XMin + x * dx, clrY);
+                    }
+                });
+
+            return ptr;
+        }
+
+        public override Image<Rgba32> RenderToImage(int width, int height)
+        {
             unsafe
             {
-                using var pinHandle = memory.Pin();
-                Rgba32* ptr = (Rgba32*) pinHandle.Pointer;
-
-                Parallel.For(0,
-                    image.Height,
-                    y =>
-                    {
-                        Rgba32* row = ptr + y * image.Width;
-                        for (var x = 0; x < image.Width; ++x)
-                        {
-                            *(row + x) = DeepColoring(XMin + x * dx, YMin + y * dy);
-                        }
-                    });
+                Render(width, height);
             }
 
             return image;

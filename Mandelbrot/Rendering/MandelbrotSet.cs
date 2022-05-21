@@ -35,6 +35,7 @@ namespace Mandelbrot.Rendering
             yMax = newY + dy;
         }
 
-        public abstract Image<Rgba32> Render(int width, int height);
+        public abstract unsafe Rgba32* Render(int width, int height);
+        public abstract Image<Rgba32> RenderToImage(int width, int height);
     }
 }
