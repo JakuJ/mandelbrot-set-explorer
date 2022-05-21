@@ -11,7 +11,7 @@ namespace Mandelbrot.Rendering
 
         protected double YMin = -1.25;
 
-        protected double YMax = 1.25;
+        private double yMax = 1.25;
 
         public int N = 200;
 
@@ -19,7 +19,7 @@ namespace Mandelbrot.Rendering
 
         protected double Width => XMax - XMin;
 
-        protected double Height => YMax - YMin;
+        protected double Height => yMax - YMin;
 
         public void Zoom(double dx, double dy, double factor)
         {
@@ -32,7 +32,7 @@ namespace Mandelbrot.Rendering
             XMin = newX - dx;
             XMax = newX + dx;
             YMin = newY - dy;
-            YMax = newY + dy;
+            yMax = newY + dy;
         }
 
         public abstract Image<Rgba32> Render(int width, int height);

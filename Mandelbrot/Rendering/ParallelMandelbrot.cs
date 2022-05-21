@@ -5,31 +5,53 @@ using SixLabors.ImageSharp.PixelFormats;
 
 namespace Mandelbrot.Rendering
 {
-    public class ParallelMandelbrot : MandelbrotSet
+    public class ParallelMandelbrot : MandelbrotSet, IDisposable
     {
-        private Image<Rgba32> img = new(1, 1);
+        private Image<Rgba32> image = new(1, 1);
+
+        public void Dispose()
+        {
+            image.Dispose();
+            GC.SuppressFinalize(this);
+        }
 
         public override Image<Rgba32> Render(int width, int height)
         {
-            if (img.Width != width || img.Height != height)
+            if (image.Width != width || image.Height != height)
             {
-                img = new Image<Rgba32>(width, height);
+                image.Dispose();
+
+                var config = Configuration.Default.Clone();
+                config.PreferContiguousImageBuffers = true;
+                image = new Image<Rgba32>(config, width, height);
             }
 
-            var dx = Width / img.Width;
-            var dy = Height / img.Height;
+            var dx = Width / image.Width;
+            var dy = Height / image.Height;
 
-            Parallel.For(0,
-                img.Height,
-                y =>
-                {
-                    for (var x = 0; x < img.Width; ++x)
+            if (!image.DangerousTryGetSinglePixelMemory(out Memory<Rgba32> memory))
+            {
+                throw new Exception("This can only happen with multi-GB images or when PreferContiguousImageBuffers is not set to true.");
+            }
+
+            unsafe
+            {
+                using var pinHandle = memory.Pin();
+                Rgba32* ptr = (Rgba32*) pinHandle.Pointer;
+
+                Parallel.For(0,
+                    image.Height,
+                    y =>
                     {
-                        img[x, y] = DeepColoring(XMin + x * dx, YMin + y * dy);
-                    }
-                });
+                        Rgba32* row = ptr + y * image.Width;
+                        for (var x = 0; x < image.Width; ++x)
+                        {
+                            *(row + x) = DeepColoring(XMin + x * dx, YMin + y * dy);
+                        }
+                    });
+            }
 
-            return img;
+            return image;
         }
 
         private Rgba32 DeepColoring(double cRe, double cIm)

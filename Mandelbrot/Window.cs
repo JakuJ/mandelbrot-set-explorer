@@ -104,7 +104,7 @@ namespace Mandelbrot
         {
             var factor = e.Button == MouseButton.Left ? zoomFactor : 1 / zoomFactor;
 
-            mandelbrot.Zoom(MousePosition.X / (double) Size.X, MousePosition.Y / (double) Size.Y, factor);
+            mandelbrot.Zoom(MousePosition.X / (double) Size.X, 1 - MousePosition.Y / (double) Size.Y, factor);
             Render();
 
             base.OnMouseDown(e);
@@ -203,22 +203,8 @@ namespace Mandelbrot
             {
                 imageBuffer = new byte[4 * ImageWidth * ImageHeight];
             }
-
-            image.ProcessPixelRows(access =>
-            {
-                var i = 0;
-                for (var y = image.Height - 1; y >= 0; --y)
-                {
-                    var row = access.GetRowSpan(y);
-                    foreach (var color in row)
-                    {
-                        imageBuffer[i++] = color.R;
-                        imageBuffer[i++] = color.G;
-                        imageBuffer[i++] = color.B;
-                        imageBuffer[i++] = color.A;
-                    }
-                }
-            });
+            
+            image.CopyPixelDataTo(imageBuffer);
 
             GL.TexImage2D(
                 TextureTarget.Texture2D,
