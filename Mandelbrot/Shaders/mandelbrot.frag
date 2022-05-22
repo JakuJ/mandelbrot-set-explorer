@@ -10,7 +10,7 @@ uniform float yMin;
 uniform float yMax;
 uniform float R;
 uniform float M;
-uniform int N;
+uniform uint N;
 
 void main()
 {
@@ -23,13 +23,11 @@ void main()
     float zImSqr = 0;
     float radius = R * R;
 
-    for (int i = 0; i < N; ++i)
+    for (uint i = 0; i < N; ++i)
     {
         if (zReSqr + zImSqr > radius)
         {
-            float x = i + i - log2(zReSqr + zImSqr);
-            x *= M;
-
+            float x = M * (i + i);
             float red = .5f * (1 - cos(x));
             float green = .5f * (1 - cos(b * x));
             float blue = .5f * (1 - cos(c * x));

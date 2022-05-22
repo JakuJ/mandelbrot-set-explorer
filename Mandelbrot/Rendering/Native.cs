@@ -26,8 +26,8 @@ public class NativeRenderer : Renderer, IDisposable
         var handle = GL.GenTexture();
         GL.BindTexture(TextureTarget.Texture2D, handle);
 
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int) TextureMinFilter.Linear);
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int) TextureMagFilter.Linear);
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int) TextureMinFilter.Nearest);
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int) TextureMagFilter.Nearest);
 
         float[] vertices =
         {
@@ -52,33 +52,38 @@ public class NativeRenderer : Renderer, IDisposable
         GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
     }
 
-    public override unsafe void Render(int width, int height)
+    public override void Render(int width, int height)
     {
+        if (Shader is null) return;
+
+        GL.Uniform1(Shader.GetUniformLocation("N"), N);
+        GL.Uniform1(Shader.GetUniformLocation("M"), M);
+
         GL.TexImage2D(
             TextureTarget.Texture2D,
             0,
-            PixelInternalFormat.Rgba,
+            PixelInternalFormat.R32ui,
             width,
             height,
             0,
-            PixelFormat.Rgba,
-            PixelType.UnsignedByte,
-            (IntPtr) RenderTexture(width, height));
+            PixelFormat.RedInteger,
+            PixelType.UnsignedInt,
+            RenderTexture(width, height));
     }
 
-    private unsafe Rgba32* RenderTexture(int width, int height)
+    private unsafe IntPtr RenderTexture(int width, int height)
     {
         if (image.Width != width || image.Height != height)
         {
             image.Dispose();
-            image = Helpers.ContiguousImage(width, height);
+            image = Helpers.ContiguousImage<Rgba32>(width, height);
         }
 
         var dx = Width / image.Width;
         var dy = Height / image.Height;
 
         using var pinHandle = Helpers.GetImageMemory(image);
-        var ptr = (Rgba32*) pinHandle.Pointer;
+        var ptr = (uint*) pinHandle.Pointer;
 
         Parallel.For(0,
             image.Height,
@@ -89,14 +94,14 @@ public class NativeRenderer : Renderer, IDisposable
 
                 for (var x = 0; x < image.Width; ++x)
                 {
-                    *row++ = DeepColoring(XMin + x * dx, clrY);
+                    *row++ = ParallelColoring(XMin + x * dx, clrY);
                 }
             });
 
-        return ptr;
+        return (IntPtr) ptr;
     }
 
-    private Rgba32 DeepColoring(double cRe, double cIm)
+    private uint ParallelColoring(double cRe, double cIm)
     {
         double zRe = 0, zIm = 0;
 
@@ -105,10 +110,12 @@ public class NativeRenderer : Renderer, IDisposable
 
         double radius = R * R;
 
-        for (var i = 0; i < N; i++)
+        for (uint i = 0; i < N; i++)
         {
             if (zReSqr + zImSqr > radius)
-                return GetColor(i, (float) (zReSqr + zImSqr));
+            {
+                return i;
+            }
 
             zIm = Math.FusedMultiplyAdd(zIm, zRe * 2, cIm);
 
@@ -117,19 +124,7 @@ public class NativeRenderer : Renderer, IDisposable
             zImSqr = zIm * zIm;
         }
 
-        return Color.Black;
-    }
-
-    private Rgba32 GetColor(int i, float zs)
-    {
-        const float b = 0.23570226f, c = 0.124526508f;
-        var x = M * (i + i - MathF.Log2(zs));
-
-        var red = .5f * (1 - MathF.Cos(x));
-        var green = .5f * (1 - MathF.Cos(b * x));
-        var blue = .5f * (1 - MathF.Cos(c * x));
-
-        return new Rgba32(red, green, blue);
+        return 0;
     }
 
     protected override void Dispose(bool disposing)

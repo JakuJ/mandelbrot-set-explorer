@@ -4,7 +4,7 @@ namespace Mandelbrot.Rendering;
 
 public abstract class Renderer : IDisposable
 {
-    public int N = 200;
+    public uint N = 200;
     public float M = 0.25f;
     public float R = 2;
 
@@ -26,7 +26,7 @@ public abstract class Renderer : IDisposable
 
     public void Zoom(double dx, double dy, double factor = 0)
     {
-        factor = 1 + factor * 0.01;
+        factor = Math.Abs(1 + factor * 0.01);
 
         var newX = XMin + Width * dx;
         var newY = YMin + Height * dy;

@@ -8,6 +8,7 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
 namespace Mandelbrot;
@@ -84,11 +85,11 @@ public sealed class Window : GameWindow
         }
         else if (IsKeyDown(Keys.D2))
         {
-            renderer.M = MathF.Min(2, MathF.Max(2 * float.Epsilon, renderer.M + delta / 100f));
+            renderer.M = MathF.Min(1, MathF.Max(.01f, renderer.M + delta / 100f));
         }
         else if (IsKeyDown(Keys.D3))
         {
-            renderer.N = Math.Max(25, renderer.N + 25 * MathF.Sign(delta));
+            renderer.N = Math.Max(25, renderer.N + (uint) (25 * MathF.Sign(delta)));
         }
         else
         {
@@ -174,7 +175,7 @@ public sealed class Window : GameWindow
 
     private void SaveImage()
     {
-        var image = Helpers.ContiguousImage(ImageWidth, ImageHeight);
+        var image = Helpers.ContiguousImage<Rgba32>(ImageWidth, ImageHeight);
         using var pinHandle = Helpers.GetImageMemory(image);
 
         unsafe
@@ -191,7 +192,8 @@ public sealed class Window : GameWindow
     private void UpdateTitle(double timeElapsed)
     {
         var zoom = Math.Log10(renderer.XMax - renderer.XMin);
-        Title = $"{BaseTitle} – Res: {resolution}% - Zoom: 1e{zoom:F1} - Speed: {timeElapsed:000}ms - N: {renderer.N} - R: {renderer.R:F1} - M: {renderer.M:F2}";
+        var rendering = renderer is OpenGl ? "OpenGL" : "Native";
+        Title = $"{rendering} – Res: {resolution}% - Zoom: 1e{zoom:F1} - Speed: {timeElapsed:000}ms - N: {renderer.N} - R: {renderer.R:F1} - M: {renderer.M:F2}";
     }
 
     protected override void Dispose(bool disposing)
