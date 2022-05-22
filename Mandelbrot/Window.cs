@@ -1,13 +1,11 @@
 ﻿using System;
 using System.Diagnostics;
-using System.IO;
 using Mandelbrot.Rendering;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using SixLabors.ImageSharp.Processing;
 
 namespace Mandelbrot
 {
@@ -45,27 +43,9 @@ namespace Mandelbrot
 
         protected override void OnLoad()
         {
-            renderer.Initialize();
-
             GL.ClearColor(0, 0, 0, 1);
 
-            float[] vertices =
-            {
-                -1f, -1f, 0f, 0f, 0f,
-                1f, -1f, 0f, 1f, 0f,
-                1f, 1f, 0f, 1f, 1f,
-                -1f, 1f, 0f, 0f, 1f
-            };
-
-            vertexBufferObject = GL.GenBuffer();
-            GL.BindBuffer(BufferTarget.ArrayBuffer, vertexBufferObject);
-            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
-
-            var positionLocation = renderer.Shader.GetAttribLocation("aPosition");
-            vertexArrayObject = GL.GenVertexArray();
-            GL.BindVertexArray(vertexArrayObject);
-            GL.VertexAttribPointer(positionLocation, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
-            GL.EnableVertexAttribArray(positionLocation);
+            renderer.Initialize(out vertexBufferObject, out vertexArrayObject);
 
             base.OnLoad();
         }

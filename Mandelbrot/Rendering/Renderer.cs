@@ -20,9 +20,7 @@ namespace Mandelbrot.Rendering
 
         public abstract Shader Shader { get; protected set; }
 
-        public virtual void Initialize()
-        {
-        }
+        public abstract void Initialize(out int vbo, out int vao);
 
         protected double Width => XMax - XMin;
 

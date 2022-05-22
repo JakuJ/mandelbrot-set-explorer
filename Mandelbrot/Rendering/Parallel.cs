@@ -12,7 +12,7 @@ namespace Mandelbrot.Rendering
 
         public override Shader Shader { get; protected set; }
 
-        public override void Initialize()
+        public override void Initialize(out int vbo, out int vao)
         {
             Shader = new Shader("Shaders/texture.vert", "Shaders/texture.frag");
             Shader.Use();
@@ -22,6 +22,24 @@ namespace Mandelbrot.Rendering
 
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int) TextureMinFilter.Linear);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int) TextureMagFilter.Linear);
+
+            float[] vertices =
+            {
+                -1f, -1f, 0f, 0f, 0f,
+                1f, -1f, 0f, 1f, 0f,
+                1f, 1f, 0f, 1f, 1f,
+                -1f, 1f, 0f, 0f, 1f
+            };
+
+            vbo = GL.GenBuffer();
+            GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
+            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
+
+            var positionLocation = Shader.GetAttribLocation("aPosition");
+            vao = GL.GenVertexArray();
+            GL.BindVertexArray(vao);
+            GL.VertexAttribPointer(positionLocation, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
+            GL.EnableVertexAttribArray(positionLocation);
 
             var texCoordLocation = Shader.GetAttribLocation("aTexCoord");
             GL.EnableVertexAttribArray(texCoordLocation);

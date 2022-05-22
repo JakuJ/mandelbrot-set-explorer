@@ -1,7 +1,7 @@
 ﻿using Mandelbrot;
 using Mandelbrot.Rendering;
 
-using var mandelbrot = new ParallelMandelbrot();
+using var renderer = new OpenGl();
+using Window window = new(1200, 1000, renderer);
 
-using var window = new Window(1200, 800, mandelbrot);
 window.Run();

@@ -6,10 +6,28 @@ public class OpenGl : Renderer
 {
     public override Shader Shader { get; protected set; }
 
-    public override void Initialize()
+    public override void Initialize(out int vbo, out int vao)
     {
         Shader = new Shader("Shaders/mandelbrot.vert", "Shaders/mandelbrot.frag");
         Shader.Use();
+
+        float[] vertices =
+        {
+            -1f, -1f, 0f,
+            1f, -1f, 0f,
+            1f, 1f, 0f,
+            -1f, 1f, 0f,
+        };
+
+        vbo = GL.GenBuffer();
+        GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
+        GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
+
+        var positionLocation = Shader.GetAttribLocation("aPosition");
+        vao = GL.GenVertexArray();
+        GL.BindVertexArray(vao);
+        GL.VertexAttribPointer(positionLocation, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
+        GL.EnableVertexAttribArray(positionLocation);
     }
 
     public override void Render(int width, int height)
