@@ -9,6 +9,7 @@ uniform float xMax;
 uniform float yMin;
 uniform float yMax;
 uniform float R;
+uniform float M;
 uniform int N;
 
 void main()
@@ -26,8 +27,8 @@ void main()
     {
         if (zReSqr + zImSqr > radius)
         {
-            float zs = float(zReSqr + zImSqr);
-            float x = .5f * log2(zs) + i;
+            float x = i + i - log2(zReSqr + zImSqr);
+            x *= M;
 
             float red = .5f * (1 - cos(x));
             float green = .5f * (1 - cos(b * x));

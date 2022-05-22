@@ -6,11 +6,11 @@ using SixLabors.ImageSharp.PixelFormats;
 
 namespace Mandelbrot.Rendering
 {
-    public class ParallelMandelbrot : Renderer, IDisposable
+    public class NativeRenderer : Renderer, IDisposable
     {
         private Image<Rgba32> image = new(1, 1);
 
-        public override Shader Shader { get; protected set; }
+        protected override Shader? Shader { get; set; }
 
         public override void Initialize(out int vbo, out int vao)
         {
@@ -124,10 +124,10 @@ namespace Mandelbrot.Rendering
             return Color.Black;
         }
 
-        private static Rgba32 GetColor(int i, float zs)
+        private Rgba32 GetColor(int i, float zs)
         {
             const float b = 0.23570226f, c = 0.124526508f;
-            var x = MathF.FusedMultiplyAdd(.5f, MathF.Log2(zs), i);
+            var x = M * (i + i + MathF.Log2(zs));
 
             var red = .5f * (1 - MathF.Cos(x));
             var green = .5f * (1 - MathF.Cos(b * x));

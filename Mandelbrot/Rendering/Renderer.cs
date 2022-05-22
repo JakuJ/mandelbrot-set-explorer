@@ -1,6 +1,4 @@
 ﻿using System;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 
 namespace Mandelbrot.Rendering
 {
@@ -15,10 +13,10 @@ namespace Mandelbrot.Rendering
         protected double YMax = 1.25;
 
         public int N = 200;
-
         public float R = 2;
+        public float M = 0.25f;
 
-        public abstract Shader Shader { get; protected set; }
+        protected abstract Shader? Shader { get; set; }
 
         public abstract void Initialize(out int vbo, out int vao);
 
@@ -48,7 +46,7 @@ namespace Mandelbrot.Rendering
         {
             if (disposing)
             {
-                Shader.Dispose();
+                Shader?.Dispose();
             }
         }
 

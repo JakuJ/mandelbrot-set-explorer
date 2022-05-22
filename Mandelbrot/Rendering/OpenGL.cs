@@ -4,7 +4,7 @@ namespace Mandelbrot.Rendering;
 
 public class OpenGl : Renderer
 {
-    public override Shader Shader { get; protected set; }
+    protected override Shader? Shader { get; set; }
 
     public override void Initialize(out int vbo, out int vao)
     {
@@ -32,8 +32,11 @@ public class OpenGl : Renderer
 
     public override void Render(int width, int height)
     {
+        if (Shader is null) return;
+
         GL.Uniform1(Shader.GetUniformLocation("R"), R);
         GL.Uniform1(Shader.GetUniformLocation("N"), N);
+        GL.Uniform1(Shader.GetUniformLocation("M"), M);
         GL.Uniform1(Shader.GetUniformLocation("xMin"), (float) XMin);
         GL.Uniform1(Shader.GetUniformLocation("xMax"), (float) XMax);
         GL.Uniform1(Shader.GetUniformLocation("yMin"), (float) YMin);

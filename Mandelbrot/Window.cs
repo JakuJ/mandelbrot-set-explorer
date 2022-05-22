@@ -72,6 +72,10 @@ namespace Mandelbrot
             }
             else if (IsKeyDown(Keys.D2))
             {
+                renderer.M = MathF.Min(2, MathF.Max(2 * float.Epsilon, renderer.M + delta / 100f));
+            }
+            else if (IsKeyDown(Keys.D3))
+            {
                 renderer.N = Math.Max(25, renderer.N + 25 * deltaI);
             }
             else
@@ -100,7 +104,7 @@ namespace Mandelbrot
                 case Keys.Escape:
                     Close();
                     break;
-                case Keys.D3:
+                case Keys.D0:
                     resolution = resolution switch
                     {
                         100 => 200,
@@ -158,15 +162,14 @@ namespace Mandelbrot
         {
             // TODO
             // Directory.CreateDirectory("Captured");
-            //
             // img.Mutate(x => x.Flip(FlipMode.Vertical));
             // img.SaveAsBmp($"Captured/{DateTime.Now.ToLongTimeString()}.bmp");
         }
 
-        private void UpdateTitle(double timeElapsed = 0)
+        private void UpdateTitle(double timeElapsed)
         {
             var zoom = Math.Log10(renderer.XMax - renderer.XMin);
-            Title = $"{BaseTitle} – Res: {resolution}% - Zoom: 1e{zoom:F1} - Speed: {timeElapsed}ms - N: {renderer.N} - R: {renderer.R:F1}";
+            Title = $"{BaseTitle} – Res: {resolution}% - Zoom: 1e{zoom:F1} - Speed: {timeElapsed:000}ms - N: {renderer.N} - R: {renderer.R:F1} - M: {renderer.M:F2}";
         }
     }
 }

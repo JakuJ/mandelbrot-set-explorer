@@ -1,58 +1,30 @@
-Mandelbrot Set explorer
+Mandelbrot Set Explorer
 =============
 ![License - MIT](https://img.shields.io/github/license/JakuJ/mandelbrot-set-explorer.svg)
 
 OpenTK–based C# program that generates images of the Mandelbrot set.
-Zooming will take you as far as the floating point precision allows on your computer (10^-4.5 zoom level for single, 10^-13.5 for double precision).
+Zooming will take you as far as the floating point precision allows on your computer (1e-4.5 zoom level for single, 1e-13.5 for double precision).
+
+By default, the program uses an OpenGL fragment shader to render images.
+It's performant enough to allow for real-time panning and zooming, but uses single-precision FP numbers.
+The alternative renderer is CPU-based and uses double precision, but is orders of magnitude slower.
 
 ![](./Examples/titular.png?raw=true)
 
 Installation
 ------
 
-Run `make` in `Mandelbrot/OpenCL` folder to compile the native DLL which allows for parallel rendering on GPU/CPU using OpenCL.
-The DLL is copied to the output directory automatically by the build system.
-
-Build and run the project using the `dotnet` utility:
-
-```shell
-dotnet build  # to build
-dotnet run    # build and run
-```
-
-By default, the program uses OpenCL to render images.
-If for some reason this method cannot be used, it will fall back to using a `Parallel.For`–based approach. 
-
-The OpenCL implementation selects available devices according to this order of importance:
-
-1. GPUs supporting double precision
-2. CPUs supporting double precision
-3. GPUs supporting single precision
-
-If there are no OpenCL-ready GPUs, then the CPUs are used.
-There are two OpenCL kernels used for rendering, one based on an `unsigned char` buffer and one based on `image2d`.
-The former is used with CPUs, the later with GPUs, to benefit from GPU image processing power.
-
-OpenCL implementation on the CPU is about 4x faster than the `Parallel.For`–based implementation (tested on Intel® Core™ i5-5257U CPU @ 2.70GHz).
-
-If the OpenCL implementation doesn't work for you for some reason, use release mode to enable optimizations and set the target to `x64` for major speed improvements over `x86` while using the `Parallel.For`–based implementation.
+Build and run the project by invoking the `dotnet run` command.
 
 Usage
 ------
 
-* Left click anywhere in the image to zoom in on that location, right click to zoom out
-* Use the `Space` key to toggle between modes dictating the parameter your mouse wheel changes. Currently available modes are:
-1. Zooming factor
-2. Image resolution
-3. Number of iterations per pixel
-4. Iteration escape radius (changes coloring smoothness).
-* Use the mouse wheel to control the selected parameter.
-* Press S to save the current image. Images are stored in the "Captured" folder.
-* The Escape key terminates the program.
-
-To Do:
------
-* Use an arbitrary floating point precision library to ~~go even further beyond!~~ allow for deeper zooming in the OpenCL kernel.
+* Left-click and hold to pan around, scroll wheel to zoom.
+* Hold <kbd>1</kbd> and scroll to change the escape radius
+* Hold <kbd>2</kbd> and scroll to change the color modifier
+* Hold <kbd>3</kbd> and scroll to change the number of iterations
+* Press <kbd>0</kbd> to change resolution (only with CPU rendering)
+* Press <kbd>Escape</kbd> to terminate the program.
 
 Parameters
 ----
