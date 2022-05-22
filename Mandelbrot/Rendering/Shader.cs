@@ -6,9 +6,9 @@ using static System.GC;
 
 namespace Mandelbrot;
 
-public sealed class Shader
+public sealed class Shader : IDisposable
 {
-    public readonly int Handle;
+    private readonly int handle;
 
     public Shader(string vertexPath, string fragmentPath)
     {
@@ -45,28 +45,26 @@ public sealed class Shader
         if (infoLogFrag != string.Empty)
             Console.WriteLine(infoLogFrag);
 
-        Handle = GL.CreateProgram();
+        handle = GL.CreateProgram();
 
-        GL.AttachShader(Handle, vertexShader);
-        GL.AttachShader(Handle, fragmentShader);
+        GL.AttachShader(handle, vertexShader);
+        GL.AttachShader(handle, fragmentShader);
 
-        GL.LinkProgram(Handle);
+        GL.LinkProgram(handle);
 
-        GL.DetachShader(Handle, vertexShader);
-        GL.DetachShader(Handle, fragmentShader);
+        GL.DetachShader(handle, vertexShader);
+        GL.DetachShader(handle, fragmentShader);
         GL.DeleteShader(fragmentShader);
         GL.DeleteShader(vertexShader);
     }
 
     public void Use()
     {
-        GL.UseProgram(Handle);
+        GL.UseProgram(handle);
     }
 
-    public int GetAttribLocation(string attribName)
-    {
-        return GL.GetAttribLocation(Handle, attribName);
-    }
+    public int GetAttribLocation(string name) => GL.GetAttribLocation(handle, name);
+    public int GetUniformLocation(string name) => GL.GetUniformLocation(handle, name);
 
     private bool disposedValue;
 
@@ -74,15 +72,14 @@ public sealed class Shader
     {
         if (!disposedValue)
         {
-            GL.DeleteProgram(Handle);
-
+            GL.DeleteProgram(handle);
             disposedValue = true;
         }
     }
 
     ~Shader()
     {
-        GL.DeleteProgram(Handle);
+        GL.DeleteProgram(handle);
     }
 
     public void Dispose()

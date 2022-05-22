@@ -2,12 +2,11 @@
 using System.Diagnostics;
 using System.IO;
 using Mandelbrot.Rendering;
-using OpenTK.Graphics.OpenGL;
+using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 
 namespace Mandelbrot
@@ -15,35 +14,27 @@ namespace Mandelbrot
     public sealed class Window : GameWindow
     {
         private const string BaseTitle = "Mandelbrot Set";
-        private readonly MandelbrotSet mandelbrot;
+        private readonly Renderer renderer;
         private int resolution = 100;
         private int vertexBufferObject;
         private int vertexArrayObject;
-        private readonly Shader shader;
         private bool render = true;
 
         private int ImageWidth => Size.X * resolution / 100;
 
         private int ImageHeight => Size.Y * resolution / 100;
 
-        public Window(int width, int height, MandelbrotSet mandelbrot)
+        public Window(int width, int height, Renderer renderer)
             : base(GameWindowSettings.Default,
                 new NativeWindowSettings
                 {
                     Profile = ContextProfile.Core,
-                    APIVersion = Version.Parse("3.3"),
+                    APIVersion = Version.Parse("4.1"),
                     Size = new Vector2i(width, height),
                     Flags = ContextFlags.ForwardCompatible,
                 })
         {
-            this.mandelbrot = mandelbrot;
-            shader = new Shader("shader.vert", "shader.frag");
-
-            var handle = GL.GenTexture();
-            GL.BindTexture(TextureTarget.Texture2D, handle);
-
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int) TextureMinFilter.Linear);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int) TextureMagFilter.Linear);
+            this.renderer = renderer;
         }
 
         protected override void OnResize(ResizeEventArgs e)
@@ -54,8 +45,7 @@ namespace Mandelbrot
 
         protected override void OnLoad()
         {
-            shader.Use();
-            GL.LoadIdentity();
+            renderer.Initialize();
 
             GL.ClearColor(0, 0, 0, 1);
 
@@ -71,17 +61,12 @@ namespace Mandelbrot
             GL.BindBuffer(BufferTarget.ArrayBuffer, vertexBufferObject);
             GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
 
-            var positionLocation = shader.GetAttribLocation("aPosition");
+            var positionLocation = renderer.Shader.GetAttribLocation("aPosition");
             vertexArrayObject = GL.GenVertexArray();
             GL.BindVertexArray(vertexArrayObject);
             GL.VertexAttribPointer(positionLocation, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
             GL.EnableVertexAttribArray(positionLocation);
 
-            var texCoordLocation = shader.GetAttribLocation("aTexCoord");
-            GL.EnableVertexAttribArray(texCoordLocation);
-            GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
-
-            Render();
             base.OnLoad();
         }
 
@@ -89,7 +74,7 @@ namespace Mandelbrot
         {
             if (MouseState.IsButtonDown(MouseButton.Button1))
             {
-                mandelbrot.Zoom(0.5 - e.DeltaX / Size.X, 1 - (0.5 - e.DeltaY / Size.Y));
+                renderer.Zoom(0.5 - e.DeltaX / Size.X, 1 - (0.5 - e.DeltaY / Size.Y));
                 render = true;
             }
 
@@ -98,15 +83,16 @@ namespace Mandelbrot
 
         protected override void OnMouseWheel(MouseWheelEventArgs e)
         {
-            var delta = MathF.Sign(MouseState.ScrollDelta.Y);
+            var delta = MouseState.ScrollDelta.Y;
+            var deltaI = MathF.Sign(delta);
 
             if (IsKeyDown(Keys.D1))
             {
-                mandelbrot.R = (int) MathF.Min(32768, MathF.Max(2, mandelbrot.R + delta));
+                renderer.R = MathF.Min(32768f, MathF.Max(2f, renderer.R + delta));
             }
             else if (IsKeyDown(Keys.D2))
             {
-                mandelbrot.N = Math.Max(25, mandelbrot.N + 25 * delta);
+                renderer.N = Math.Max(25, renderer.N + 25 * deltaI);
             }
             else
             {
@@ -119,7 +105,7 @@ namespace Mandelbrot
                 vec *= 1 - 1 / MathF.Pow(2, factor);
                 vec *= 1.3333f;
 
-                mandelbrot.Zoom(.5 + vec.X, .5 + vec.Y, MouseState.ScrollDelta.Y);
+                renderer.Zoom(.5 + vec.X, .5 + vec.Y, MouseState.ScrollDelta.Y);
             }
 
             render = true;
@@ -161,7 +147,6 @@ namespace Mandelbrot
             // Delete all the resources.
             GL.DeleteBuffer(vertexBufferObject);
             GL.DeleteVertexArray(vertexArrayObject);
-            GL.DeleteProgram(shader.Handle);
 
             base.OnUnload();
         }
@@ -170,9 +155,12 @@ namespace Mandelbrot
         {
             base.OnRenderFrame(e);
 
+            Stopwatch stopwatch = new();
+            stopwatch.Start();
+
             if (render)
             {
-                Render();
+                renderer.Render(ImageWidth, ImageHeight);
                 render = false;
             }
 
@@ -182,47 +170,23 @@ namespace Mandelbrot
             GL.DrawArrays(PrimitiveType.TriangleFan, 0, 4);
 
             SwapBuffers();
-        }
-
-        private void SaveImage()
-        {
-            Directory.CreateDirectory("Captured");
-
-            var img = mandelbrot.RenderToImage(ImageWidth, ImageHeight);
-            img.Mutate(x => x.Flip(FlipMode.Vertical));
-            img.SaveAsBmp($"Captured/{DateTime.Now.ToLongTimeString()}.bmp");
-        }
-
-        private unsafe void GenerateTexture()
-        {
-            var image = mandelbrot.Render(ImageWidth, ImageHeight);
-
-            GL.TexImage2D(
-                TextureTarget.Texture2D,
-                0,
-                PixelInternalFormat.Rgba,
-                ImageWidth,
-                ImageHeight,
-                0,
-                PixelFormat.Rgba,
-                PixelType.UnsignedByte,
-                (IntPtr) image);
-        }
-
-        private void Render()
-        {
-            Stopwatch stopwatch = new();
-            stopwatch.Start();
-
-            GenerateTexture();
 
             UpdateTitle(stopwatch.ElapsedMilliseconds);
         }
 
+        private void SaveImage()
+        {
+            // TODO
+            // Directory.CreateDirectory("Captured");
+            //
+            // img.Mutate(x => x.Flip(FlipMode.Vertical));
+            // img.SaveAsBmp($"Captured/{DateTime.Now.ToLongTimeString()}.bmp");
+        }
+
         private void UpdateTitle(double timeElapsed = 0)
         {
-            var zoom = Math.Log10(mandelbrot.XMax - mandelbrot.XMin);
-            Title = $"{BaseTitle} – Res: {resolution}% - Zoom: 10^{zoom:F1} - Speed: {timeElapsed}ms - N: {mandelbrot.N} - R: {mandelbrot.R}";
+            var zoom = Math.Log10(renderer.XMax - renderer.XMin);
+            Title = $"{BaseTitle} – Res: {resolution}% - Zoom: 1e{zoom:F1} - Speed: {timeElapsed}ms - N: {renderer.N} - R: {renderer.R:F1}";
         }
     }
 }

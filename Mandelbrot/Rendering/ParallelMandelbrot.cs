@@ -1,21 +1,48 @@
 using System;
 using System.Threading.Tasks;
+using OpenTK.Graphics.OpenGL4;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
 namespace Mandelbrot.Rendering
 {
-    public class ParallelMandelbrot : MandelbrotSet, IDisposable
+    public class ParallelMandelbrot : Renderer, IDisposable
     {
         private Image<Rgba32> image = new(1, 1);
 
-        public void Dispose()
+        public override Shader Shader { get; protected set; }
+
+        public override void Initialize()
         {
-            image.Dispose();
-            GC.SuppressFinalize(this);
+            Shader = new Shader("Shaders/texture.vert", "Shaders/texture.frag");
+            Shader.Use();
+
+            var handle = GL.GenTexture();
+            GL.BindTexture(TextureTarget.Texture2D, handle);
+
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int) TextureMinFilter.Linear);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int) TextureMagFilter.Linear);
+
+            var texCoordLocation = Shader.GetAttribLocation("aTexCoord");
+            GL.EnableVertexAttribArray(texCoordLocation);
+            GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
         }
 
-        public override unsafe Rgba32* Render(int width, int height)
+        public override unsafe void Render(int width, int height)
+        {
+            GL.TexImage2D(
+                TextureTarget.Texture2D,
+                0,
+                PixelInternalFormat.Rgba,
+                width,
+                height,
+                0,
+                PixelFormat.Rgba,
+                PixelType.UnsignedByte,
+                (IntPtr) RenderTexture(width, height));
+        }
+
+        private unsafe Rgba32* RenderTexture(int width, int height)
         {
             if (image.Width != width || image.Height != height)
             {
@@ -51,16 +78,6 @@ namespace Mandelbrot.Rendering
                 });
 
             return ptr;
-        }
-
-        public override Image<Rgba32> RenderToImage(int width, int height)
-        {
-            unsafe
-            {
-                Render(width, height);
-            }
-
-            return image;
         }
 
         private Rgba32 DeepColoring(double cRe, double cIm)
@@ -99,6 +116,22 @@ namespace Mandelbrot.Rendering
             var blue = .5f * (1 - MathF.Cos(c * x));
 
             return new Rgba32(red, green, blue);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                image.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
+
+        void IDisposable.Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
     }
 }
