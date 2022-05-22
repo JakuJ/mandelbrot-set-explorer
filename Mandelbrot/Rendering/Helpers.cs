@@ -18,9 +18,7 @@ public static class Helpers
     public static MemoryHandle GetImageMemory(Image<Rgba32> image)
     {
         if (!image.DangerousTryGetSinglePixelMemory(out var memory))
-        {
             throw new Exception("This can only happen with multi-GB images or when PreferContiguousImageBuffers is not set to true.");
-        }
 
         return memory.Pin();
     }

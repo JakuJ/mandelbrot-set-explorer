@@ -13,8 +13,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="OpenTK" Version="4.7.2" />
-        <PackageReference Include="SixLabors.ImageSharp" Version="2.1.1" />
+        <PackageReference Include="OpenTK" Version="4.7.2"/>
+        <PackageReference Include="SixLabors.ImageSharp" Version="2.1.1"/>
     </ItemGroup>
 
     <ItemGroup>
@@ -28,7 +28,7 @@
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
         <Content Include="Shaders\texture.vert">
-          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
     </ItemGroup>
 </Project>
