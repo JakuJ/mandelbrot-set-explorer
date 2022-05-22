@@ -24,6 +24,7 @@ Usage
 * Hold <kbd>2</kbd> and scroll to change the color modifier
 * Hold <kbd>3</kbd> and scroll to change the number of iterations
 * Press <kbd>0</kbd> to change resolution (only with CPU rendering)
+* Press <kbd>S</kbd> to save the image to a file.
 * Press <kbd>Escape</kbd> to terminate the program.
 
 Parameters

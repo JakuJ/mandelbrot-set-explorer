@@ -65,10 +65,7 @@ namespace Mandelbrot.Rendering
             if (image.Width != width || image.Height != height)
             {
                 image.Dispose();
-
-                var config = Configuration.Default.Clone();
-                config.PreferContiguousImageBuffers = true;
-                image = new Image<Rgba32>(config, width, height);
+                image = Helpers.ContiguousImage(width, height);
             }
 
             var dx = Width / image.Width;
@@ -79,7 +76,7 @@ namespace Mandelbrot.Rendering
                 throw new Exception("This can only happen with multi-GB images or when PreferContiguousImageBuffers is not set to true.");
             }
 
-            using var pinHandle = memory.Pin();
+            using var pinHandle = Helpers.GetImageMemory(image);
             var ptr = (Rgba32*) pinHandle.Pointer;
 
             Parallel.For(0,

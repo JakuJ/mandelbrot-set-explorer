@@ -1,11 +1,15 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
 using Mandelbrot.Rendering;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
 namespace Mandelbrot
 {
@@ -160,10 +164,18 @@ namespace Mandelbrot
 
         private void SaveImage()
         {
-            // TODO
-            // Directory.CreateDirectory("Captured");
-            // img.Mutate(x => x.Flip(FlipMode.Vertical));
-            // img.SaveAsBmp($"Captured/{DateTime.Now.ToLongTimeString()}.bmp");
+            var image = Helpers.ContiguousImage(ImageWidth * 2, ImageHeight * 2);
+            using var pinHandle = Helpers.GetImageMemory(image);
+
+            unsafe
+            {
+                var ptr = (IntPtr) pinHandle.Pointer;
+                GL.ReadPixels(0, 0, ImageWidth * 2, ImageHeight * 2, PixelFormat.Rgba, PixelType.UnsignedByte, ptr);
+            }
+
+            Directory.CreateDirectory("Captured");
+            image.Mutate(x => x.Flip(FlipMode.Vertical));
+            image.SaveAsBmp($"Captured/capture-{DateTime.Now.ToLongTimeString()}.bmp");
         }
 
         private void UpdateTitle(double timeElapsed)
