@@ -124,7 +124,7 @@ namespace Mandelbrot.Rendering
         private Rgba32 GetColor(int i, float zs)
         {
             const float b = 0.23570226f, c = 0.124526508f;
-            var x = M * (i + i + MathF.Log2(zs));
+            var x = M * (i + i - MathF.Log2(zs));
 
             var red = .5f * (1 - MathF.Cos(x));
             var green = .5f * (1 - MathF.Cos(b * x));

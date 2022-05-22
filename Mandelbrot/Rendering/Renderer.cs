@@ -40,6 +40,17 @@ namespace Mandelbrot.Rendering
             YMax = newY + dy;
         }
 
+        public void CopyParams(Renderer other)
+        {
+            XMin = other.XMin;
+            XMax = other.XMax;
+            YMin = other.YMin;
+            YMax = other.YMax;
+            N = other.N;
+            M = other.M;
+            R = other.R;
+        }
+
         public abstract void Render(int width, int height);
 
         protected virtual void Dispose(bool disposing)
@@ -50,7 +61,7 @@ namespace Mandelbrot.Rendering
             }
         }
 
-        void IDisposable.Dispose()
+        public void Dispose()
         {
             Dispose(true);
             GC.SuppressFinalize(this);

@@ -8,7 +8,6 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
 namespace Mandelbrot
@@ -16,17 +15,17 @@ namespace Mandelbrot
     public sealed class Window : GameWindow
     {
         private const string BaseTitle = "Mandelbrot Set";
-        private readonly Renderer renderer;
+        private Renderer renderer;
         private int resolution = 100;
         private int vertexBufferObject;
         private int vertexArrayObject;
         private bool render = true;
 
-        private int ImageWidth => Size.X * resolution / 100;
+        private int ImageWidth => ClientSize.X * resolution / 100;
 
-        private int ImageHeight => Size.Y * resolution / 100;
+        private int ImageHeight => ClientSize.Y * resolution / 100;
 
-        public Window(int width, int height, Renderer renderer)
+        public Window(int width, int height)
             : base(GameWindowSettings.Default,
                 new NativeWindowSettings
                 {
@@ -36,12 +35,24 @@ namespace Mandelbrot
                     Flags = ContextFlags.ForwardCompatible,
                 })
         {
-            this.renderer = renderer;
+            renderer = new OpenGl();
+        }
+
+        private void SwitchRenderer()
+        {
+            var old = renderer;
+            old.Dispose();
+
+            renderer = old is OpenGl ? new NativeRenderer() : new OpenGl();
+
+            renderer.CopyParams(old);
+            renderer.Initialize(out vertexBufferObject, out vertexArrayObject);
+            renderer.Render(ImageWidth, ImageHeight);
         }
 
         protected override void OnResize(ResizeEventArgs e)
         {
-            GL.Viewport(0, 0, Size.X * 2, Size.Y * 2);
+            GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
             base.OnResize(e);
         }
 
@@ -58,7 +69,7 @@ namespace Mandelbrot
         {
             if (MouseState.IsButtonDown(MouseButton.Button1))
             {
-                renderer.Zoom(0.5 - e.DeltaX / Size.X, 1 - (0.5 - e.DeltaY / Size.Y));
+                renderer.Zoom(0.5 - e.DeltaX / ClientSize.X, 1 - (0.5 - e.DeltaY / ClientSize.Y));
                 render = true;
             }
 
@@ -68,7 +79,6 @@ namespace Mandelbrot
         protected override void OnMouseWheel(MouseWheelEventArgs e)
         {
             var delta = MouseState.ScrollDelta.Y;
-            var deltaI = MathF.Sign(delta);
 
             if (IsKeyDown(Keys.D1))
             {
@@ -80,7 +90,7 @@ namespace Mandelbrot
             }
             else if (IsKeyDown(Keys.D3))
             {
-                renderer.N = Math.Max(25, renderer.N + 25 * deltaI);
+                renderer.N = Math.Max(25, renderer.N + 25 * MathF.Sign(delta));
             }
             else
             {
@@ -108,17 +118,19 @@ namespace Mandelbrot
                 case Keys.Escape:
                     Close();
                     break;
-                case Keys.D0:
-                    resolution = resolution switch
-                    {
-                        100 => 200,
-                        200 => 50,
-                        _ => 100
-                    };
-                    render = true;
+                case Keys.R:
+                    SwitchRenderer();
                     break;
                 case Keys.S:
                     SaveImage();
+                    break;
+                case Keys.D0:
+                    resolution = resolution switch
+                    {
+                        100 => 50,
+                        _ => 100
+                    };
+                    render = true;
                     break;
             }
 
@@ -164,13 +176,13 @@ namespace Mandelbrot
 
         private void SaveImage()
         {
-            var image = Helpers.ContiguousImage(ImageWidth * 2, ImageHeight * 2);
+            var image = Helpers.ContiguousImage(ImageWidth, ImageHeight);
             using var pinHandle = Helpers.GetImageMemory(image);
 
             unsafe
             {
                 var ptr = (IntPtr) pinHandle.Pointer;
-                GL.ReadPixels(0, 0, ImageWidth * 2, ImageHeight * 2, PixelFormat.Rgba, PixelType.UnsignedByte, ptr);
+                GL.ReadPixels(0, 0, ImageWidth, ImageHeight, PixelFormat.Rgba, PixelType.UnsignedByte, ptr);
             }
 
             Directory.CreateDirectory("Captured");
@@ -182,6 +194,16 @@ namespace Mandelbrot
         {
             var zoom = Math.Log10(renderer.XMax - renderer.XMin);
             Title = $"{BaseTitle} – Res: {resolution}% - Zoom: 1e{zoom:F1} - Speed: {timeElapsed:000}ms - N: {renderer.N} - R: {renderer.R:F1} - M: {renderer.M:F2}";
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                renderer.Dispose();
+            }
+
+            base.Dispose(disposing);
         }
     }
 }
