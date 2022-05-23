@@ -15,7 +15,6 @@ namespace Mandelbrot;
 
 public sealed class Window : GameWindow
 {
-    private const string BaseTitle = "Mandelbrot Set";
     private bool changed = true;
     private Renderer renderer;
     private int resolution = 100;
@@ -178,18 +177,16 @@ public sealed class Window : GameWindow
 
     private void SaveImage()
     {
-        var image = Helpers.ContiguousImage<Rgba32>(ImageWidth, ImageHeight);
-        using var pinHandle = Helpers.GetImageMemory(image);
+        using var image = new ContiguousImage<Rgba32>(ImageWidth, ImageHeight);
 
         unsafe
         {
-            var ptr = (IntPtr) pinHandle.Pointer;
-            GL.ReadPixels(0, 0, ImageWidth, ImageHeight, PixelFormat.Rgba, PixelType.UnsignedByte, ptr);
+            GL.ReadPixels(0, 0, ImageWidth, ImageHeight, PixelFormat.Rgba, PixelType.UnsignedByte, (IntPtr) image.Pointer);
         }
 
         Directory.CreateDirectory("Captured");
-        image.Mutate(x => x.Flip(FlipMode.Vertical));
-        image.SaveAsBmp($"Captured/capture-{DateTime.Now.ToLongTimeString()}.bmp");
+        image.Image.Mutate(x => x.Flip(FlipMode.Vertical));
+        image.Image.SaveAsBmp($"Captured/capture-{DateTime.Now.ToLongTimeString()}.bmp");
     }
 
     private void UpdateTitle(double timeElapsed)

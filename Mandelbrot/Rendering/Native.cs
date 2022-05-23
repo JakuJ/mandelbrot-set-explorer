@@ -1,24 +1,19 @@
 using System;
-using System.Diagnostics;
-using System.Linq;
+using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using OpenTK.Graphics.OpenGL4;
-using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
 namespace Mandelbrot.Rendering;
 
 public class NativeRenderer : Renderer, IDisposable
 {
-    private Image<Rgba32> image = new(1, 1);
+    private ContiguousImage<Rgba32>? image;
+    private CancellationTokenSource cancellation = new();
+    private readonly List<Task> tasks = new();
 
     protected override Shader? Shader { get; set; }
-
-    void IDisposable.Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
 
     public override void Initialize(out int vbo, out int vao)
     {
@@ -36,7 +31,7 @@ public class NativeRenderer : Renderer, IDisposable
             -1f, -1f, 0f, 0f, 0f,
             1f, -1f, 0f, 1f, 0f,
             1f, 1f, 0f, 1f, 1f,
-            -1f, 1f, 0f, 0f, 1f
+            -1f, 1f, 0f, 0f, 1f,
         };
 
         vbo = GL.GenBuffer();
@@ -52,6 +47,14 @@ public class NativeRenderer : Renderer, IDisposable
         var texCoordLocation = Shader.GetAttribLocation("aTexCoord");
         GL.EnableVertexAttribArray(texCoordLocation);
         GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
+    }
+
+    private void SpawnRenderingThreads()
+    {
+        for (var i = 0; i < Environment.ProcessorCount - 1; ++i)
+        {
+            tasks.Add(Task.Run(MonteCarlo, cancellation.Token));
+        }
     }
 
     public override void OnChange()
@@ -80,50 +83,42 @@ public class NativeRenderer : Renderer, IDisposable
             RenderTexture(width, height));
     }
 
-    private unsafe IntPtr RenderTexture(int width, int height)
+    private void MonteCarlo()
     {
-        if (image.Width != width || image.Height != height)
+        Random random = new();
+
+        while (!cancellation.IsCancellationRequested)
         {
-            image.Dispose();
-            image = Helpers.ContiguousImage<Rgba32>(width, height);
-        }
+            var dx = Width / image!.Image.Width;
+            var dy = Height / image.Image.Height;
 
-        var dx = Width / image.Width;
-        var dy = Height / image.Height;
-
-        using var pinHandle = Helpers.GetImageMemory(image);
-        var ptr = (uint*) pinHandle.Pointer;
-
-        const int fps = 60;
-        const int frame = 1000 / fps;
-
-        Stopwatch stopwatch = new();
-        stopwatch.Start();
-
-        void DoWork()
-        {
-            Random random = new();
-            while (stopwatch.ElapsedMilliseconds < frame)
+            for (var i = 0; i < 1000; i++)
             {
-                for (var i = 0; i < 100; i++)
-                {
-                    var y = random.Next(0, image.Height);
-                    var x = random.Next(0, image.Width);
+                var y = random.Next(0, image.Image.Height);
+                var x = random.Next(0, image.Image.Width);
 
-                    var row = ptr + y * image.Width + x;
+                unsafe
+                {
+                    var row = (uint*) image.Pointer + y * image.Image.Width + x;
                     *row = ParallelIteration(XMin + x * dx, YMin + y * dy);
                 }
             }
         }
+    }
 
-        var tasks = Enumerable
-            .Range(0, Environment.ProcessorCount - 1)
-            .Select(_ => Task.Run(DoWork))
-            .ToArray();
+    private unsafe IntPtr RenderTexture(int width, int height)
+    {
+        if (image is null || image.Image.Width != width || image.Image.Height != height)
+        {
+            KillRenderingThreads();
 
-        Task.WaitAll(tasks);
+            image?.Dispose();
+            image = new ContiguousImage<Rgba32>(width, height);
 
-        return (IntPtr) ptr;
+            SpawnRenderingThreads();
+        }
+
+        return (IntPtr) image.Pointer;
     }
 
     private uint ParallelIteration(double cRe, double cIm)
@@ -152,9 +147,27 @@ public class NativeRenderer : Renderer, IDisposable
         return 0;
     }
 
+    private void KillRenderingThreads()
+    {
+        cancellation.Cancel(false);
+        Task.WaitAll(tasks.ToArray());
+        cancellation = new CancellationTokenSource();
+    }
+
     protected override void Dispose(bool disposing)
     {
-        if (disposing) image.Dispose();
+        if (disposing)
+        {
+            KillRenderingThreads();
+            image?.Dispose();
+        }
+
         base.Dispose(disposing);
+    }
+
+    void IDisposable.Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
     }
 }
