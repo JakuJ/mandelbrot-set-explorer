@@ -15,7 +15,7 @@ void main()
     
     uint i = texture(texture0, texCoord).r;
     
-    if (i > N) {
+    if (i == N) {
         outputColor = vec4(0, 0, 0, 1);
         return;
     }

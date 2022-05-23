@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.Arm;
 using System.Threading;
 using System.Threading.Tasks;
 using OpenTK.Graphics.OpenGL4;
@@ -9,6 +11,8 @@ namespace Mandelbrot.Rendering;
 
 public class NativeRenderer : Renderer, IDisposable
 {
+    private const int SimdOffset = 1;
+
     private ContiguousImage<Rgba32>? image;
     private CancellationTokenSource cancellation = new();
     private readonly List<Task> tasks = new();
@@ -102,12 +106,14 @@ public class NativeRenderer : Renderer, IDisposable
 
             for (var i = 0; i < 1000; i++)
             {
-                var x = random.Next(image.Image.Width);
+                var x = random.Next(image.Image.Width - SimdOffset);
                 var y = random.Next(image.Image.Height);
 
                 var row = (uint*) image.Pointer + y * image.Image.Width + x;
-                *row = ParallelIteration(
+                NeonIteration(
+                    row,
                     Math.FusedMultiplyAdd(x, dx, XMin),
+                    Math.FusedMultiplyAdd(x + 1, dx, XMin),
                     Math.FusedMultiplyAdd(y, dy, YMin)
                 );
             }
@@ -145,9 +151,14 @@ public class NativeRenderer : Renderer, IDisposable
 
                 var ptr = (uint*) image.Pointer + y * image.Image.Width;
 
-                for (var x = 0; x < image.Image.Width; x++)
+                for (var x = 0; x < image.Image.Width - SimdOffset; x += 2, ptr += 2)
                 {
-                    *ptr++ = ParallelIteration(Math.FusedMultiplyAdd(x, dx, XMin), yClr);
+                    NeonIteration(
+                        ptr,
+                        Math.FusedMultiplyAdd(x, dx, XMin),
+                        Math.FusedMultiplyAdd(x + 1, dx, XMin),
+                        yClr
+                    );
                 }
             }
         }
@@ -166,6 +177,66 @@ public class NativeRenderer : Renderer, IDisposable
         }
 
         return (IntPtr) image.Pointer;
+    }
+
+    private unsafe void NeonIteration(uint* ptr, double cRe1, double cRe2, double cIm)
+    {
+        var dataRe = stackalloc[] { cRe1, cRe2 };
+        var dataIm = stackalloc[] { cIm, cIm };
+
+        var vRe = AdvSimd.LoadVector128(dataRe);
+        var vIm = AdvSimd.LoadVector128(dataIm);
+
+        var vZre = Vector128<double>.Zero;
+        var vZim = Vector128<double>.Zero;
+        var vZreSq = Vector128<double>.Zero;
+        var vZimSq = Vector128<double>.Zero;
+
+        var dataTwo = stackalloc[] { 2.0 };
+        var vTwo = AdvSimd.LoadVector64(dataTwo);
+
+        double radius = R * R;
+        var radiusData = stackalloc[] { radius, radius };
+        var vRad = AdvSimd.LoadVector128(radiusData);
+
+        var mask = stackalloc ulong[2] { 0, 0 };
+        var vMask = Vector128<ulong>.Zero;
+
+        *ptr = 0;
+        *(ptr + 1) = 0;
+
+        for (uint i = 0; i < N; i++)
+        {
+            var zSqSum = AdvSimd.Arm64.Add(vZreSq, vZimSq);
+            var vCmp = AdvSimd.Arm64.CompareGreaterThan(zSqSum, vRad).AsUInt64();
+            vMask = AdvSimd.Or(vMask, vCmp);
+
+            AdvSimd.Store(mask, vMask);
+
+            if (*ptr == 0 && (mask[0] & 1) == 1)
+            {
+                *ptr = i;
+            }
+
+            if (*(ptr + 1) == 0 && (mask[1] & 1) == 1)
+            {
+                *(ptr + 1) = i;
+            }
+
+            if ((mask[0] & mask[1]) != 0)
+            {
+                return;
+            }
+
+            var vZRe2 = AdvSimd.Arm64.MultiplyByScalar(vZre, vTwo);
+            vZim = AdvSimd.Arm64.FusedMultiplyAdd(vIm, vZim, vZRe2);
+
+            vZre = AdvSimd.Arm64.Subtract(vZreSq, vZimSq);
+            vZre = AdvSimd.Arm64.Add(vZre, vRe);
+
+            vZreSq = AdvSimd.Arm64.Multiply(vZre, vZre);
+            vZimSq = AdvSimd.Arm64.Multiply(vZim, vZim);
+        }
     }
 
     private uint ParallelIteration(double cRe, double cIm)
