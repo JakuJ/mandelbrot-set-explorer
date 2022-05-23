@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using OpenTK.Graphics.OpenGL4;
 using SixLabors.ImageSharp;
@@ -52,12 +54,19 @@ public class NativeRenderer : Renderer, IDisposable
         GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
     }
 
-    public override void Render(int width, int height)
+    public override void OnChange()
     {
         if (Shader is null) return;
 
         GL.Uniform1(Shader.GetUniformLocation("N"), N);
         GL.Uniform1(Shader.GetUniformLocation("M"), M);
+
+        base.OnChange();
+    }
+
+    public override void Render(int width, int height)
+    {
+        if (Shader is null) return;
 
         GL.TexImage2D(
             TextureTarget.Texture2D,
@@ -85,23 +94,39 @@ public class NativeRenderer : Renderer, IDisposable
         using var pinHandle = Helpers.GetImageMemory(image);
         var ptr = (uint*) pinHandle.Pointer;
 
-        Parallel.For(0,
-            image.Height,
-            y =>
-            {
-                var row = ptr + y * image.Width;
-                var clrY = YMin + y * dy;
+        const int fps = 60;
+        const int frame = 1000 / fps;
 
-                for (var x = 0; x < image.Width; ++x)
+        Stopwatch stopwatch = new();
+        stopwatch.Start();
+
+        void DoWork()
+        {
+            Random random = new();
+            while (stopwatch.ElapsedMilliseconds < frame)
+            {
+                for (var i = 0; i < 100; i++)
                 {
-                    *row++ = ParallelColoring(XMin + x * dx, clrY);
+                    var y = random.Next(0, image.Height);
+                    var x = random.Next(0, image.Width);
+
+                    var row = ptr + y * image.Width + x;
+                    *row = ParallelIteration(XMin + x * dx, YMin + y * dy);
                 }
-            });
+            }
+        }
+
+        var tasks = Enumerable
+            .Range(0, Environment.ProcessorCount - 1)
+            .Select(_ => Task.Run(DoWork))
+            .ToArray();
+
+        Task.WaitAll(tasks);
 
         return (IntPtr) ptr;
     }
 
-    private uint ParallelColoring(double cRe, double cIm)
+    private uint ParallelIteration(double cRe, double cIm)
     {
         double zRe = 0, zIm = 0;
 

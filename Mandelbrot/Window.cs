@@ -16,7 +16,7 @@ namespace Mandelbrot;
 public sealed class Window : GameWindow
 {
     private const string BaseTitle = "Mandelbrot Set";
-    private bool render = true;
+    private bool changed = true;
     private Renderer renderer;
     private int resolution = 100;
     private int vertexArrayObject;
@@ -48,6 +48,7 @@ public sealed class Window : GameWindow
 
         renderer.CopyParams(old);
         renderer.Initialize(out vertexBufferObject, out vertexArrayObject);
+        renderer.OnChange();
         renderer.Render(ImageWidth, ImageHeight);
     }
 
@@ -69,7 +70,7 @@ public sealed class Window : GameWindow
         if (MouseState.IsButtonDown(MouseButton.Button1))
         {
             renderer.Zoom(0.5 - e.DeltaX / ClientSize.X, 1 - (0.5 - e.DeltaY / ClientSize.Y));
-            render = true;
+            changed = true;
         }
 
         base.OnMouseMove(e);
@@ -105,7 +106,7 @@ public sealed class Window : GameWindow
             renderer.Zoom(.5 + vec.X, .5 + vec.Y, MouseState.ScrollDelta.Y);
         }
 
-        render = true;
+        changed = true;
 
         base.OnMouseWheel(e);
     }
@@ -127,9 +128,9 @@ public sealed class Window : GameWindow
                 resolution = resolution switch
                 {
                     100 => 50,
-                    _ => 100
+                    50 => 25,
+                    _ => 100,
                 };
-                render = true;
                 break;
         }
 
@@ -157,11 +158,13 @@ public sealed class Window : GameWindow
         Stopwatch stopwatch = new();
         stopwatch.Start();
 
-        if (render)
+        if (changed)
         {
-            renderer.Render(ImageWidth, ImageHeight);
-            render = false;
+            renderer.OnChange();
+            changed = false;
         }
+
+        renderer.Render(ImageWidth, ImageHeight);
 
         GL.Clear(ClearBufferMask.ColorBufferBit);
 

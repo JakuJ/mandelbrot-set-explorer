@@ -30,7 +30,7 @@ public class OpenGl : Renderer
         GL.EnableVertexAttribArray(positionLocation);
     }
 
-    public override void Render(int width, int height)
+    public override void OnChange()
     {
         if (Shader is null) return;
 

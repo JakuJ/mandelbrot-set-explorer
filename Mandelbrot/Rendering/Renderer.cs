@@ -22,7 +22,13 @@ public abstract class Renderer : IDisposable
 
     public abstract void Initialize(out int vbo, out int vao);
 
-    public abstract void Render(int width, int height);
+    public virtual void Render(int width, int height)
+    {
+    }
+
+    public virtual void OnChange()
+    {
+    }
 
     public void Zoom(double dx, double dy, double factor = 0)
     {
