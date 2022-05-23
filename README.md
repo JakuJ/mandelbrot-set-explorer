@@ -3,10 +3,11 @@ Mandelbrot Set Explorer
 ![License - MIT](https://img.shields.io/github/license/JakuJ/mandelbrot-set-explorer.svg)
 
 OpenTK–based C# program that generates images of the Mandelbrot set.
-Zooming will take you as far as the floating point precision allows on your computer (1e-4.5 zoom level for single, 1e-13.5 for double precision).
 
-The default fragment shader-based renderer allows for real-time panning and zooming, but uses single-precision FP numbers.
-At any time you can switch to a CPU-based renderer that uses double precision, but is ~2 orders of magnitude slower.
+Uses two rendering techniques:
+
+* OpenGL fragment shader (GPU) - very fast, but limited by 32-bit floating point precision.
+* Monte Carlo (CPU) - uses all available threads to parallelize the work. Works on double precision numbers. Will use 128-bit NEON SIMD operations on supported 64-bit ARM processors.
 
 ![](./Examples/titular.png?raw=true)
 
@@ -22,7 +23,7 @@ Usage
 * Hold <kbd>1</kbd> and scroll to change the escape radius
 * Hold <kbd>2</kbd> and scroll to change the color modifier
 * Hold <kbd>3</kbd> and scroll to change the number of iterations
-* Press <kbd>R</kbd> to switch between GPU/float and CPU/double rendering. 
+* Press <kbd>R</kbd> to switch between GPU/float and CPU/double rendering.
 * Press <kbd>0</kbd> to change resolution (for CPU rendering)
 * Press <kbd>S</kbd> to save the image to a file.
 * Press <kbd>Escape</kbd> to terminate the program.
@@ -50,8 +51,12 @@ Here are two images of the same region with `N = 1375` and `N = 4000`:
 Gallery
 -------
 
-![](./Examples/minibrot.png?raw=true)
+![](./Examples/hole.png?raw=true)
+![](./Examples/tendrils.png?raw=true)
 ![](./Examples/dragon.png?raw=true)
+![](./Examples/main.png?raw=true)
+![](./Examples/windmill.png?raw=true)
+![](./Examples/cross.png?raw=true)
+![](./Examples/minibrot.png?raw=true)
 ![](./Examples/recursion.png?raw=true)
 ![](./Examples/blade.png?raw=true)
-![](./Examples/infinite_detail.png?raw=true)

@@ -16,7 +16,7 @@ public abstract class Renderer : IDisposable
 
     protected abstract Shader? Shader { get; set; }
 
-    protected double Width => XMax - XMin;
+    public double Width => XMax - XMin;
 
     protected double Height => YMax - YMin;
 

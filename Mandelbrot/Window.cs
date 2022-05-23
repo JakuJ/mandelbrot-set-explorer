@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using System.IO;
 using Mandelbrot.Rendering;
 using OpenTK.Graphics.OpenGL4;
@@ -154,9 +153,6 @@ public sealed class Window : GameWindow
     {
         base.OnRenderFrame(e);
 
-        Stopwatch stopwatch = new();
-        stopwatch.Start();
-
         if (changed)
         {
             renderer.OnChange();
@@ -171,8 +167,7 @@ public sealed class Window : GameWindow
         GL.DrawArrays(PrimitiveType.TriangleFan, 0, 4);
 
         SwapBuffers();
-
-        UpdateTitle(stopwatch.ElapsedMilliseconds);
+        UpdateTitle();
     }
 
     private void SaveImage()
@@ -189,11 +184,11 @@ public sealed class Window : GameWindow
         image.Image.SaveAsBmp($"Captured/capture-{DateTime.Now.ToLongTimeString()}.bmp");
     }
 
-    private void UpdateTitle(double timeElapsed)
+    private void UpdateTitle()
     {
-        var zoom = Math.Log10(renderer.XMax - renderer.XMin);
+        var zoom = Math.Log2(renderer.Width);
         var rendering = renderer is OpenGl ? "OpenGL" : "Native";
-        Title = $"{rendering} – Res: {resolution}% - Zoom: 1e{zoom:F1} - Speed: {timeElapsed:000}ms - N: {renderer.N} - R: {renderer.R:F1} - M: {renderer.M:F2}";
+        Title = $"{rendering} – Res: {resolution}% - Zoom: 2^{zoom:F1} - N: {renderer.N} - R: {renderer.R:F1} - M: {renderer.M:F2}";
     }
 
     protected override void Dispose(bool disposing)
