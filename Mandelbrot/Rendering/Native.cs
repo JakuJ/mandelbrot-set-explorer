@@ -13,6 +13,8 @@ public class NativeRenderer : Renderer, IDisposable
     private CancellationTokenSource cancellation = new();
     private readonly List<Task> tasks = new();
 
+    private volatile bool filling;
+
     protected override Shader? Shader { get; set; }
 
     public override void Initialize(out int vbo, out int vao)
@@ -51,14 +53,20 @@ public class NativeRenderer : Renderer, IDisposable
 
     private void SpawnRenderingThreads()
     {
-        for (var i = 0; i < Environment.ProcessorCount - 1; ++i)
+        var n = Environment.ProcessorCount - 1;
+
+        for (var i = 0; i < n; ++i)
         {
             tasks.Add(Task.Run(MonteCarlo, cancellation.Token));
         }
+
+        tasks.Add(Task.Run(() => FillIn(0, 1, true), cancellation.Token));
     }
 
     public override void OnChange()
     {
+        filling = false;
+
         if (Shader is null) return;
 
         GL.Uniform1(Shader.GetUniformLocation("N"), N);
@@ -83,7 +91,7 @@ public class NativeRenderer : Renderer, IDisposable
             RenderTexture(width, height));
     }
 
-    private void MonteCarlo()
+    private unsafe void MonteCarlo()
     {
         Random random = new();
 
@@ -94,13 +102,52 @@ public class NativeRenderer : Renderer, IDisposable
 
             for (var i = 0; i < 1000; i++)
             {
-                var y = random.Next(0, image.Image.Height);
-                var x = random.Next(0, image.Image.Width);
+                var x = random.Next(image.Image.Width);
+                var y = random.Next(image.Image.Height);
 
-                unsafe
+                var row = (uint*) image.Pointer + y * image.Image.Width + x;
+                *row = ParallelIteration(
+                    Math.FusedMultiplyAdd(x, dx, XMin),
+                    Math.FusedMultiplyAdd(y, dy, YMin)
+                );
+            }
+        }
+    }
+
+    private unsafe void FillIn(int index, int all, bool reverse = false)
+    {
+        var step = image!.Image.Height / all;
+
+        var startY = step * index;
+        var stopY = step * (index + 1) - (all - index == 1 ? 1 : 0);
+
+        if (stopY >= image.Image.Height)
+            throw new ArgumentException($"Height {stopY} out of bounds for image of height {image.Image.Height}");
+
+        while (true)
+        {
+            for (var i = startY; i < stopY; ++i)
+            {
+                if (cancellation.IsCancellationRequested) return;
+                if (!filling)
                 {
-                    var row = (uint*) image.Pointer + y * image.Image.Width + x;
-                    *row = ParallelIteration(XMin + x * dx, YMin + y * dy);
+                    Thread.Sleep(1000);
+                    filling = true;
+                    break;
+                }
+
+                var y = reverse ? stopY - (i - startY) : i;
+
+                var dx = Width / image.Image.Width;
+                var dy = Height / image.Image.Height;
+
+                var yClr = Math.FusedMultiplyAdd(y, dy, YMin);
+
+                var ptr = (uint*) image.Pointer + y * image.Image.Width;
+
+                for (var x = 0; x < image.Image.Width; x++)
+                {
+                    *ptr++ = ParallelIteration(Math.FusedMultiplyAdd(x, dx, XMin), yClr);
                 }
             }
         }
@@ -108,7 +155,7 @@ public class NativeRenderer : Renderer, IDisposable
 
     private unsafe IntPtr RenderTexture(int width, int height)
     {
-        if (image is null || image.Image.Width != width || image.Image.Height != height)
+        if (image?.Image.Width != width || image.Image.Height != height)
         {
             KillRenderingThreads();
 
